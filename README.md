@@ -29,6 +29,10 @@ The frame sits behind residential NAT/firewalls, pulling updates from a self-hos
 | :---: | :---: |
 | ![Photo library grouped by album source](docs/screenshots/dashboard-library.png) | ![Per-frame detail sheet with rename, status, and currently displayed image](docs/screenshots/dashboard-frame-detail.png) |
 
+**Frame Emulator** — a full software simulation of the physical panel (dithered rendering included) for testing without hardware:
+
+![Hardware emulator showing a dithered photo rendered for the 6-color panel, hardware status, and simulated physical buttons](docs/screenshots/dashboard-emulator.png)
+
 ---
 
 ## Hardware Specification & Verified Pinout

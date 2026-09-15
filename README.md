@@ -2,7 +2,18 @@
 
 An end-to-end, production-grade connected picture frame for family and friends. Newly uploaded photos in a remote album (**Immich**, **Google Photos**, or **Apple iCloud**) automatically sync, optimize, dither, and display on a high-resolution 6-color E-Paper display.
 
-The frame sits behind residential NAT/firewalls, pulling updates from a self-hosted Docker backend over HTTPS, and enters an ultra-low-power deep sleep between updates with complete physical pin isolation.
+The frame sits behind residential NAT/firewalls, pulling updates from a self-hosted Docker backend over HTTPS, and light-sleeps between updates to keep peripheral state intact across wakeups.
+
+---
+
+## Features
+
+- **Multiple frames, multiple albums.** Connect any number of physical frames. Define reusable "Album Sources" (a named connection to a Google Photos, Immich, or iCloud album, or a manual-upload bucket) and assign any combination of them to each frame independently — a frame with no assignment falls back to showing your whole library.
+- **Per-frame overrides.** Mounting orientation, fit style (matting / cover / rotate), epdoptimize color config, refresh schedule, and Storage Mode can all be set globally as defaults and overridden per frame from the dashboard.
+- **On-demand cloud downloads.** Cloud albums are synced as lightweight metadata plus a small preview thumbnail only — the full-resolution original and the 960 KB e-paper render are fetched and cached just before a photo is actually about to be shown (pre-warmed in the background ahead of each frame's next expected refresh), not eagerly for every photo in the album. Photos that haven't been needed in a while have their heavy files automatically reclaimed, keeping disk usage bounded regardless of album size.
+- **Timezone-aware scheduling.** Set one or more daily refresh times per display's own local timezone; a 24-hour watchdog forces a refresh regardless, to protect against e-ink particle sticking.
+- **Web dashboard & hardware emulator.** Manage frames, album sources, and the photo library from a browser; a full software emulator of the physical panel is included for testing without hardware.
+- **Hardened by default.** Session-cookie auth with rate-limited login, timing-safe password comparison, an auto-generated admin password when none is set, and optional TLS certificate pinning for the frame's connection to the backend.
 
 ---
 
@@ -33,7 +44,7 @@ The frame sits behind residential NAT/firewalls, pulling updates from a self-hos
 
 ## Physical Screen Safety & Health Protection
 
-1. **Parasitic Voltage Isolation:** Multi-color e-paper panels degrade rapidly if pins are held HIGH under static power. After any screen draw/refresh, the firmware issues `0x02` (POF - Power Off) to the driver IC, waits for `BUSY` HIGH, and configures all 8 SPI lines to high-impedance `INPUT` with `rtc_gpio_isolate()` before entering deep sleep.
+1. **Safe Power-Down Sequencing:** Multi-color e-paper panels must be powered down cleanly between refreshes. After any screen draw/refresh, the firmware issues `0x02` (POF - Power Off) to the driver IC and waits for `BUSY` HIGH before the ESP32 light-sleeps. Light sleep (rather than deep sleep) keeps peripheral and GPIO state intact across wakeups, since this frame runs on mains power rather than battery.
 2. **24-Hour Particle Refresh Rule:** E-ink microcapsules suffer from particle sticking/burn-in if static images sit indefinitely. The backend watchdog schedules a full panel cycle at least once every 24 hours.
 3. **Long-Term Storage / Vacation Mode:** When stored or unused for extended periods, the screen must be refreshed to pure white. The system includes an admin toggle that delivers a 100% white buffer (`0x11` across 960 KB) and indefinitely sleeps the frame (`X-Sleep-Seconds: 0`). Pressing the physical button wakes it up on demand.
 

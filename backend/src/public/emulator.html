@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuadro Emulator (Good Display 7.09" Spectra 6)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gabarito:wght@600;700;800&family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel-bg: #f7f8fa;
+      --border: #e2e8f0;
+      --text: #242c48;
+      --muted: #6b7280;
+      --accent: #009ee3;
+      --success: #10b981;
+      --warning: #d97706;
+      --danger: #dc2626;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .mi { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; font-size: 1.2em; line-height: 1; vertical-align: -0.2em; display: inline-block; white-space: nowrap; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 1.5rem; }
+
+    header { width: 100%; max-width: 1200px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+    header h2 { font-family: 'Gabarito', 'Urbanist', sans-serif; }
+    .nav-links a { color: var(--accent); text-decoration: none; font-weight: 600; margin-left: 1rem; }
+    .nav-links a:hover { text-decoration: underline; }
+
+    .main-layout { display: flex; gap: 2rem; width: 100%; max-width: 1200px; flex-wrap: wrap; justify-content: center; }
+
+    /* Realistic Picture Frame Bezel */
+    .frame-container {
+      position: relative;
+      background: #1c1510; /* Dark Walnut frame finish */
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow:
+        0 20px 50px rgba(0,0,0,0.8),
+        inset 0 2px 4px rgba(255,255,255,0.15),
+        inset 0 -4px 10px rgba(0,0,0,0.6);
+      display: inline-block;
+      transition: transform 0.3s ease;
+    }
+
+    /* Picture Matting (Passe-partout) */
+    .matting {
+      background: #fbfbf9; /* Warm gallery white passe-partout */
+      padding: 24px;
+      border-radius: 6px;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.35);
+      position: relative;
+    }
+
+    /* E-Paper Display Glass / Panel */
+    .epd-panel {
+      position: relative;
+      background: #e8e8e3; /* E-paper unpowered reflective substrate */
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.25);
+      border-radius: 2px;
+      overflow: hidden;
+      display: block;
+    }
+
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      width: 480px;  /* 1200 / 2.5 for crisp screen preview */
+      height: 640px; /* 1600 / 2.5 */
+      background: #e8e8e3;
+    }
+
+    .landscape canvas {
+      width: 640px;
+      height: 480px;
+    }
+
+    /* Panel Refreshing / Inversion Overlay Animation */
+    .refreshing-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(255,255,255,0);
+      pointer-events: none;
+      display: none;
+    }
+
+    @keyframes epdCycle {
+      0%   { background: rgba(20,20,20, 0.95); }
+      20%  { background: rgba(240,240,240, 0.95); }
+      40%  { background: rgba(20,20,20, 0.9); }
+      60%  { background: rgba(240,240,240, 0.9); }
+      80%  { background: rgba(200,200,200, 0.7); }
+      100% { background: rgba(255,255,255, 0); }
+    }
+
+    .is-refreshing .refreshing-overlay {
+      display: block;
+      animation: epdCycle 2.8s ease-in-out forwards;
+    }
+
+    /* Controls & Hardware Telemetry Console */
+    .console-panel {
+      flex: 1;
+      min-width: 320px;
+      max-width: 450px;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+    }
+
+    .card h3 { font-size: 1rem; color: var(--muted); margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; }
+
+    .status-pill {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .pill-active { background: rgba(16,185,129,0.12); color: var(--success); }
+    .pill-sleep { background: rgba(0,158,227,0.12); color: var(--accent); }
+    .pill-refresh { background: rgba(217,119,6,0.12); color: var(--warning); }
+
+    .stat-row { display: flex; justify-content: space-between; padding: 0.45rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+    .stat-label { color: var(--muted); }
+    .stat-value { font-weight: 600; }
+
+    .btn-group { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.75rem; }
+    button {
+      flex: 1;
+      padding: 0.65rem 1rem;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.9; }
+    button.btn-secondary { background: var(--border); color: var(--text); }
+    button.btn-warning { background: var(--warning); color: #fff; }
+
+    .terminal-log {
+      background: #06090e;
+      border: 1px solid #1a2233;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.75rem;
+      color: #7dd3fc;
+      height: 180px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+
+    .log-warn { color: #fde047; }
+    .log-err { color: #f87171; }
+    .log-success { color: #86efac; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h2>Cuadro Hardware Emulator</h2>
+      <p style="color: var(--muted); font-size: 0.85rem;">Good Display 7.09" E Ink Spectra™ 6 (GDEB0709E01 on ESP32-S3)</p>
+    </div>
+    <div class="nav-links">
+      <a href="/"><span class="mi">arrow_back</span> Back to Admin Dashboard</a>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <!-- Physical Frame Bezel & Screen -->
+    <div class="frame-container" id="frameBox">
+      <div class="matting">
+        <div class="epd-panel" id="panelWrapper">
+          <canvas id="epdCanvas" width="1200" height="1600"></canvas>
+          <div class="refreshing-overlay"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls & Telemetry Console -->
+    <div class="console-panel">
+      <!-- Hardware State Card -->
+      <div class="card">
+        <h3>
+          Hardware Status
+          <span id="statePill" class="status-pill pill-active">INITIALIZING</span>
+        </h3>
+        <div class="stat-row">
+          <span class="stat-label">Model:</span>
+          <span class="stat-value">GDEB0709E01 (Dual-IC)</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Resolution:</span>
+          <span class="stat-value" id="resLabel">1200 × 1600 @ 282 PPI</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Simulated Battery:</span>
+          <span class="stat-value" id="batLabel">4.12 V (95%)</span>
+        </div>
+        <div class="stat-row">
+        <div class="stat-row">
+          <span class="stat-label">Current Image ID:</span>
+          <span class="stat-value" id="imageIdLabel" style="font-family: monospace;">-</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Next Sleep Interval:</span>
+          <span class="stat-value" id="sleepTimerLabel">Waiting for poll...</span>
+        </div>
+      </div>
+
+      <!-- Physical Hardware Buttons (Good Display ESP32-133C02) -->
+      <div class="card">
+        <h3>
+          Physical Buttons
+          <span style="font-size: 0.75rem; color: var(--muted);">ESP32-S3 RTC GPIOs</span>
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <div style="display: flex; gap: 0.5rem;">
+            <button onclick="triggerButton1Click()" style="flex: 2; background: #2563eb;" title="GPIO 12 Short Press: Fetch & refresh immediately">
+              <span class="mi">touch_app</span> Button 1: Next Frame (Click)
+            </button>
+            <button onclick="triggerButton1Hold()" style="flex: 2; background: #b45309;" title="GPIO 12 Hold 3s: Clear to white & enter indefinite sleep">
+              <span class="mi">pause_circle</span> Button 1: Hold (Storage)
+            </button>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button onclick="triggerButton2Hold()" style="background: #059669;" title="GPIO 13 Hold 3s: Launch SoftAP Captive Portal">
+              <span class="mi">wifi</span> Button 2: Hold (Wi-Fi Hotspot)
+            </button>
+            <button onclick="triggerButton3Click()" class="btn-secondary" title="GPIO 14 Click: 6-Color Test Pattern">
+              <span class="mi">palette</span> Button 3: Test Pattern
+            </button>
+          </div>
+          <button class="btn-secondary" onclick="toggleOrientation()" style="margin-top: 0.25rem;">
+            <span class="mi">screen_rotation</span> Rotate View (Landscape / Portrait)
+          </button>
+        </div>
+      </div>
+
+      <!-- Server Connection Settings -->
+      <div class="card">
+        <h3>Server Endpoint</h3>
+        <input type="text" id="serverUrl" value="" placeholder="http://192.168.178.4:7890" style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; margin-bottom: 0.5rem;">
+        <input type="password" id="frameToken" value="" placeholder="Frame Token (auto-filled from server settings)" style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem; margin-bottom: 0.5rem;">
+      </div>
+
+      <!-- Live Hardware Bus Log -->
+      <div class="card">
+        <h3>
+          Firmware UART & SPI Trace
+          <span style="cursor: pointer; color: var(--muted); font-size: 0.75rem;" onclick="clearLogs()">Clear</span>
+        </h3>
+        <div class="terminal-log" id="termLog"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Spectra 6 Physical Pigment Colors (sRGB representations for preview)
+    const SPECTRA_COLORS = {
+      0x0: [20, 20, 20],      // Black
+      0x1: [240, 240, 240],  // White
+      0x2: [235, 205, 45],   // Yellow
+      0x3: [180, 25, 30],    // Red
+      0x5: [25, 75, 155],    // Blue
+      0x6: [35, 125, 55]     // Green
+    };
+
+    const canvas = document.getElementById('epdCanvas');
+    const ctx = canvas.getContext('2d');
+    const termLog = document.getElementById('termLog');
+
+    let currentSleepTimer = null;
+    let sleepRemainingSeconds = 0;
+    let isLandscape = false;
+
+    function log(msg, type = '') {
+      const line = document.createElement('div');
+      if (type) line.className = `log-${type}`;
+      const time = new Date().toLocaleTimeString();
+      line.textContent = `[${time}] ${msg}`;
+      termLog.appendChild(line);
+      termLog.scrollTop = termLog.scrollHeight;
+    }
+
+    function clearLogs() {
+      termLog.innerHTML = '';
+    }
+
+    function setStatus(text, pillClass) {
+      const pill = document.getElementById('statePill');
+      pill.textContent = text;
+      pill.className = `status-pill ${pillClass}`;
+    }
+
+    // Toggle between portrait and landscape view
+    function toggleOrientation() {
+      isLandscape = !isLandscape;
+      const box = document.getElementById('panelWrapper');
+      if (isLandscape) {
+        canvas.width = 1600;
+        canvas.height = 1200;
+        box.classList.add('landscape');
+        document.getElementById('resLabel').textContent = '1600 × 1200 @ 282 PPI (Landscape)';
+      } else {
+        canvas.width = 1200;
+        canvas.height = 1600;
+        box.classList.remove('landscape');
+        document.getElementById('resLabel').textContent = '1200 × 1600 @ 282 PPI (Portrait)';
+      }
+      log(`Orientation toggled to ${isLandscape ? 'Landscape' : 'Portrait'}`);
+      fetchNextFrame();
+    }
+
+    // Unpack 960,000-byte 4-bit binary into Canvas ImageData
+    function renderBinaryToCanvas(arrayBuffer) {
+      const bytes = new Uint8Array(arrayBuffer);
+      if (bytes.length !== 960000) {
+        log(`Warning: payload size ${bytes.length} != 960000 bytes`, 'warn');
+      }
+
+      const imgData = ctx.createImageData(1200, 1600);
+      const data = imgData.data;
+
+      for (let i = 0; i < 960000; i++) {
+        const byte = bytes[i];
+        const p0 = (byte >> 4) & 0x0f;
+        const p1 = byte & 0x0f;
+
+        const c0 = SPECTRA_COLORS[p0] || [128, 128, 128];
+        const c1 = SPECTRA_COLORS[p1] || [128, 128, 128];
+
+        const idx0 = (i * 2) * 4;
+        data[idx0]     = c0[0];
+        data[idx0 + 1] = c0[1];
+        data[idx0 + 2] = c0[2];
+        data[idx0 + 3] = 255;
+
+        const idx1 = (i * 2 + 1) * 4;
+        data[idx1]     = c1[0];
+        data[idx1 + 1] = c1[1];
+        data[idx1 + 2] = c1[2];
+        data[idx1 + 3] = 255;
+      }
+
+      if (isLandscape) {
+        // Render 1200x1600 into an offscreen canvas and draw un-rotated into 1600x1200
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = 1200;
+        offCanvas.height = 1600;
+        offCanvas.getContext('2d').putImageData(imgData, 0, 0);
+
+        ctx.save();
+        ctx.translate(0, 1200);
+        ctx.rotate(-90 * Math.PI / 180);
+        ctx.drawImage(offCanvas, 0, 0);
+        ctx.restore();
+      } else {
+        ctx.putImageData(imgData, 0, 0);
+      }
+    }
+
+    // Emulate full physical refresh cycle with particle cycling animation
+    async function playEpdRefreshAnimation(arrayBuffer) {
+      const box = document.getElementById('panelWrapper');
+      setStatus('REFRESHING PANEL', 'pill-refresh');
+      box.classList.add('is-refreshing');
+
+      log('[SPI] PON (0x04) -> Power on charge pumps...');
+      await new Promise(r => setTimeout(r, 600));
+
+      log('[SPI] DRF (0x12) -> Cycling physical color particles...');
+      await new Promise(r => setTimeout(r, 1800));
+
+      // Render actual pixels
+      renderBinaryToCanvas(arrayBuffer);
+
+      log('[SPI] POF (0x02) -> Power off charge pumps (safety)...');
+      await new Promise(r => setTimeout(r, 600));
+
+      box.classList.remove('is-refreshing');
+      log('[POWER] Isolate GPIO lines: CS_M, CS_S, DC, RST, SCK, MOSI -> HIGH-Z', 'success');
+      setStatus('DEEP SLEEP', 'pill-sleep');
+    }
+
+    // Main frame check-in & fetch function
+    async function fetchNextFrame() {
+      const baseUrl = document.getElementById('serverUrl').value.replace(/\/+$/, '') || window.location.origin;
+      const token = document.getElementById('frameToken').value;
+
+      log(`[WIFI] Connected to ${baseUrl}. Initiating pull request (${isLandscape ? 'Landscape' : 'Portrait'})...`);
+      setStatus('FETCHING STREAM', 'pill-refresh');
+
+      try {
+        const start = performance.now();
+        const res = await fetch(`${baseUrl}/api/v1/frame/next`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-Frame-ID': 'EMULATOR-709E',
+            'X-Battery-Voltage': '4.12',
+            'X-Firmware-Version': '1.0.0-EMU',
+            'X-Frame-Orientation': isLandscape ? 'landscape' : 'portrait'
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+
+        const sleepSeconds = parseInt(res.headers.get('X-Sleep-Seconds') || '14400', 10);
+        const frameMode = res.headers.get('X-Frame-Mode') || 'NORMAL';
+        const imageId = res.headers.get('X-Image-ID') || 'unknown';
+
+        document.getElementById('imageIdLabel').textContent = imageId.slice(0, 16);
+        log(`[HTTP 200] Mode: ${frameMode}, Sleep: ${sleepSeconds}s, Image: ${imageId}`);
+
+        const arrayBuffer = await res.arrayBuffer();
+        const fetchDuration = Math.round(performance.now() - start);
+        log(`[STREAM] Received ${arrayBuffer.byteLength} bytes in ${fetchDuration} ms.`, 'success');
+
+        // Play realistic e-paper refresh animation and render
+        await playEpdRefreshAnimation(arrayBuffer);
+
+        // Send telemetry ACK back to server
+        log('[TELEMETRY] Sending refresh acknowledgment to /api/v1/frame/ack...');
+        await fetch(`${baseUrl}/api/v1/frame/ack`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'X-Frame-ID': 'EMULATOR-709E'
+          },
+          body: JSON.stringify({
+            imageId,
+            status: 'SUCCESS',
+            drawDurationMs: fetchDuration + 2500,
+            rssi: -58,
+            batteryVoltage: 4.12
+          })
+        });
+        log('[TELEMETRY] ACK acknowledged by server.', 'success');
+
+        // Start countdown to next poll
+        startSleepCountdown(sleepSeconds);
+
+      } catch (err) {
+        log(`[ERROR] Frame fetch failed: ${err.message}`, 'err');
+        setStatus('FETCH ERROR', 'pill-sleep');
+      }
+    }
+
+    function startSleepCountdown(seconds) {
+      if (currentSleepTimer) clearInterval(currentSleepTimer);
+      sleepRemainingSeconds = seconds;
+
+      if (seconds === 0) {
+        document.getElementById('sleepTimerLabel').textContent = 'Storage Mode (Sleeping Indefinitely)';
+        log('[POWER] Storage Mode: Frame is sleeping indefinitely until manual button press.');
+        return;
+      }
+
+      function updateLabel() {
+        const hrs = Math.floor(sleepRemainingSeconds / 3600);
+        const mins = Math.floor((sleepRemainingSeconds % 3600) / 60);
+        const secs = sleepRemainingSeconds % 60;
+        document.getElementById('sleepTimerLabel').textContent =
+          `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} remaining`;
+
+        if (sleepRemainingSeconds <= 0) {
+          clearInterval(currentSleepTimer);
+          log('[RTC TIMER] Wakeup alarm triggered! Waking ESP32 from deep sleep...');
+          fetchNextFrame();
+        } else {
+          sleepRemainingSeconds--;
+        }
+      }
+
+      updateLabel();
+      currentSleepTimer = setInterval(updateLabel, 1000);
+    }
+
+    function triggerButton1Click() {
+      log('[BUTTON 1] Click detected! Immediate refresh requested.', 'warn');
+      if (currentSleepTimer) clearInterval(currentSleepTimer);
+      fetchNextFrame();
+    }
+
+    async function triggerButton1Hold() {
+      log('[BUTTON 1] Hold (>=3s) detected! Triggering STORAGE MODE (Clear White)...', 'warn');
+      if (currentSleepTimer) clearInterval(currentSleepTimer);
+      setStatus('STORAGE MODE', 'pill-refresh');
+
+      // Create pure white 960,000 byte buffer (all 0x11 nibbles)
+      const whiteBuffer = new Uint8Array(1200 * 1600 / 2);
+      whiteBuffer.fill(0x11);
+
+      await playEpdRefreshAnimation(whiteBuffer.buffer);
+
+      document.getElementById('imageIdLabel').textContent = 'STORAGE_WHITE';
+      document.getElementById('sleepTimerLabel').textContent = 'Indefinite Deep Sleep (Click Button 1 to Wake)';
+      log('[EPD] Panel refreshed to 100% pure white.', 'success');
+      log('[POWER] POF (0x02) sent. Isolating RTC GPIOs. Entering indefinite deep sleep.', 'warn');
+      setStatus('STORAGE MODE', 'pill-sleep');
+    }
+
+    function triggerButton2Hold() {
+      log('[BUTTON 2] Hold (>=3s) detected! Launching SoftAP Wi-Fi Hotspot...', 'warn');
+      if (currentSleepTimer) clearInterval(currentSleepTimer);
+      setStatus('CAPTIVE PORTAL', 'pill-refresh');
+      log('[WIFI] SoftAP SSID: "Cuadro-Setup" started.', 'success');
+      log('[WIFI] Captive portal running at http://192.168.4.1 for configuration.', 'success');
+      document.getElementById('sleepTimerLabel').textContent = 'Captive Portal Active (5 min timeout)';
+    }
+
+    async function triggerButton3Click() {
+      log('[BUTTON 3] Click detected! Rendering 6-Color Diagnostic Pattern...', 'warn');
+      if (currentSleepTimer) clearInterval(currentSleepTimer);
+      setStatus('DIAGNOSTIC TEST', 'pill-refresh');
+
+      // Create 6 color bands
+      const colors = [0x0, 0x1, 0x2, 0x3, 0x5, 0x6];
+      const patternBuffer = new Uint8Array(1200 * 1600 / 2);
+      const rowBytes = 600;
+      const bandBytes = 100;
+
+      for (let r = 0; r < 1600; r++) {
+        const rowOffset = r * rowBytes;
+        for (let b = 0; b < 6; b++) {
+          const byteVal = (colors[b] << 4) | colors[b];
+          patternBuffer.fill(byteVal, rowOffset + (b * bandBytes), rowOffset + ((b + 1) * bandBytes));
+        }
+      }
+
+      await playEpdRefreshAnimation(patternBuffer.buffer);
+      document.getElementById('imageIdLabel').textContent = 'COLOR_BARS_TEST';
+      log('[EPD] 6-color test pattern display cycle complete.', 'success');
+      startSleepCountdown(14400);
+    }
+
+    // Auto-initialize on load
+    document.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('serverUrl').value = window.location.origin;
+      log('Cuadro Emulator initialized.');
+      log('Controller: Dual-IC GDEP133C02 / GDEB0709E01.');
+
+      // Pull the ACTUAL configured frame token from the backend rather than assuming the
+      // default - a real deployment normally overrides FRAME_TOKEN, and this page's admin
+      // session already has permission to read it via /api/v1/admin/settings.
+      try {
+        const res = await fetch('/api/v1/admin/settings');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.frameToken) {
+            document.getElementById('frameToken').value = data.frameToken;
+            log('Loaded active frame token from server settings.', 'success');
+          }
+        } else {
+          log('Could not auto-load frame token (not logged in?); enter it manually.', 'error');
+        }
+      } catch (err) {
+        log(`Could not auto-load frame token: ${err.message}`, 'error');
+      }
+
+      fetchNextFrame();
+    });
+  </script>
+</body>
+</html>

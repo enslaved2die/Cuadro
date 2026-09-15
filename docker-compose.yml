@@ -1,0 +1,30 @@
+services:
+  memories-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: memories-frame-backend
+    restart: unless-stopped
+    ports:
+      - "7890:8080"
+    environment:
+      - PORT=8080
+      - DATA_DIR=/data
+      - FRAME_TOKEN=${FRAME_TOKEN:-memories-frame-secure-token-12345}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - DEFAULT_SLEEP_SECONDS=${DEFAULT_SLEEP_SECONDS:-14400}
+      - WATCHDOG_HOURS=${WATCHDOG_HOURS:-24}
+      - IMMICH_HOST=${IMMICH_HOST}
+      - IMMICH_API_KEY=${IMMICH_API_KEY}
+      - IMMICH_ALBUM_ID=${IMMICH_ALBUM_ID}
+      - GOOGLE_PHOTOS_CLIENT_ID=${GOOGLE_PHOTOS_CLIENT_ID}
+      - GOOGLE_PHOTOS_CLIENT_SECRET=${GOOGLE_PHOTOS_CLIENT_SECRET}
+      - GOOGLE_PHOTOS_REFRESH_TOKEN=${GOOGLE_PHOTOS_REFRESH_TOKEN}
+      - GOOGLE_PHOTOS_ALBUM_ID=${GOOGLE_PHOTOS_ALBUM_ID}
+      - ICLOUD_SHARED_ALBUM_TOKEN=${ICLOUD_SHARED_ALBUM_TOKEN}
+    volumes:
+      - memories_data:/data
+
+volumes:
+  memories_data:
+    driver: local

@@ -1,0 +1,40 @@
+# Cloudflare Tunnel Configuration Example for Memories Frame (Cuadro)
+#
+# This configuration demonstrates the recommended 2-tier security architecture:
+# Tier 1: ESP32-S3 IoT Frame sync route -> Direct pass-through with Bearer token authentication
+# Tier 2: Admin Dashboard & Emulator   -> Protected by Cloudflare Access (SSO / Email PIN) + Server Login
+#
+# Usage:
+# 1. Install cloudflared on your server: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/
+# 2. Run: cloudflared tunnel login
+# 3. Create a tunnel: cloudflared tunnel create memories-frame
+# 4. Copy this file to /etc/cloudflared/config.yml or map in docker-compose
+# 5. Run: cloudflared tunnel run memories-frame
+
+tunnel: YOUR_TUNNEL_UUID_HERE
+credentials-file: /etc/cloudflared/YOUR_TUNNEL_UUID_HERE.json
+
+ingress:
+  # --------------------------------------------------------------------------
+  # 1. Frame IoT Endpoint: Dedicated route for remote ESP32-S3 devices
+  # --------------------------------------------------------------------------
+  # Example: https://frame.yourdomain.com/api/v1/frame/*
+  # Authenticated strictly via X-Frame-Token or Bearer Token with timing-safe comparison.
+  # Can be left open to the internet without Cloudflare Access so the ESP32 can connect directly.
+  - hostname: frame.yourdomain.com
+    path: /api/v1/frame/
+    service: http://localhost:7890
+
+  # --------------------------------------------------------------------------
+  # 2. Admin Web UI & Management Dashboard
+  # --------------------------------------------------------------------------
+  # Example: https://frame.yourdomain.com or https://admin.yourdomain.com
+  # Gated by the built-in server login portal (/login.html) with rate-limiting.
+  # Recommendation: In Cloudflare Zero Trust Dashboard, attach a Cloudflare Access
+  # Application to this hostname (requiring your Google account or email OTP)
+  # for defense-in-depth security before any request even touches your homelab!
+  - hostname: frame.yourdomain.com
+    service: http://localhost:7890
+
+  # Fallback catch-all for unmatched traffic
+  - service: http_status:404

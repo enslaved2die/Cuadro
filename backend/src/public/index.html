@@ -1,0 +1,1958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuadro Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gabarito:wght@600;700;800&family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --card: #f7f8fa;
+      --input-bg: #f1f3f8;
+      --border: #e2e8f0;
+      --text: #242c48;
+      --muted: #6b7280;
+      --accent: #009ee3;
+      --accent-hover: #0086c3;
+      --success: #10b981;
+      --danger: #dc2626;
+      --warning: #d97706;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .mi { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; font-size: 1.2em; line-height: 1; vertical-align: -0.2em; display: inline-block; white-space: nowrap; }
+    body { background: var(--bg); color: var(--text); padding: 2rem 1rem; }
+    .container { max-width: 1050px; margin: 0 auto; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; flex-wrap: wrap; gap: 1rem; }
+    h1, h2, h3 { font-family: 'Gabarito', 'Urbanist', sans-serif; }
+    h1 { font-size: 1.75rem; font-weight: 700; }
+    .status-badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; display: inline-block; }
+    .badge-active { background: rgba(16, 185, 129, 0.12); color: var(--success); }
+    .badge-sleeping { background: rgba(0, 158, 227, 0.12); color: var(--accent); }
+    .badge-overdue { background: rgba(217, 119, 6, 0.12); color: var(--warning); }
+    .badge-offline { background: rgba(220, 38, 38, 0.1); color: var(--danger); }
+    .badge-storage { background: rgba(217, 119, 6, 0.12); color: var(--warning); }
+    .badge-orientation { background: rgba(107, 114, 128, 0.1); color: var(--muted); border: 1px solid var(--border); font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 4px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+    .card h2 { font-size: 1.15rem; margin-bottom: 1rem; color: var(--text); }
+    .stat-val { font-size: 2.25rem; font-weight: 700; margin-bottom: 0.25rem; font-family: 'Gabarito', sans-serif; }
+    .btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 0.6rem 1.2rem; font-weight: 600; cursor: pointer; transition: background 0.2s; font-size: 0.85rem; }
+    .btn:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--input-bg); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-warning { background: var(--warning); color: #fff; }
+    .btn-danger { background: var(--danger); }
+    .btn-sm { padding: 0.35rem 0.75rem; font-size: 0.8rem; border-radius: 6px; }
+    .actions { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    th, td { text-align: left; padding: 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    th { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; }
+    input[type="text"], input[type="password"], select { background: var(--input-bg); border: 1px solid var(--border); color: var(--text); padding: 0.5rem 0.75rem; border-radius: 6px; font-size: 0.85rem; }
+    select:focus, input:focus { outline: none; border-color: var(--accent); }
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.25rem; margin-top: 1rem; }
+    .photo-item { background: var(--card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+    .photo-thumb { width: 100%; height: 160px; object-fit: contain; background: var(--input-bg); display: block; }
+    .photo-meta { padding: 0.75rem; flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+
+    /* Tab navigation */
+    .tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1.75rem; flex-wrap: wrap; }
+    .tab-btn { background: none; border: none; padding: 0.75rem 1rem; font-size: 0.95rem; font-weight: 600; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 0.4rem; margin-bottom: -1px; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Frame / source cards */
+    .entity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; margin-top: 1rem; }
+    .entity-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem; display: flex; flex-direction: column; gap: 0.6rem; }
+    .frame-card-thumb { width: 100%; height: 140px; object-fit: contain; background: var(--input-bg); border-radius: 8px; border: 1px solid var(--border); }
+    .empty-state { color: var(--muted); font-size: 0.85rem; padding: 1.5rem 0; text-align: center; }
+
+    /* Use-default / custom toggle */
+    .toggle-group { display: inline-flex; gap: 0.3rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.2rem; }
+    .toggle-btn { padding: 0.3rem 0.7rem; border-radius: 6px; border: none; background: transparent; color: var(--muted); font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+    .toggle-btn.active { background: var(--accent); color: #fff; }
+    .override-field { border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem; background: var(--input-bg); margin-bottom: 0.9rem; }
+    .override-field-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; gap: 0.6rem; flex-wrap: wrap; }
+    .override-field-body[data-mode="default"] { opacity: 0.45; pointer-events: none; }
+    .checkbox-row { display: flex; align-items: center; gap: 0.55rem; padding: 0.35rem 0; font-size: 0.85rem; }
+    .hint-box { font-size: 0.78rem; color: var(--muted); background: var(--input-bg); border: 1px dashed var(--border); border-radius: 6px; padding: 0.5rem 0.7rem; margin-top: 0.4rem; }
+
+    /* Generic modal overlay */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(36,44,72,0.35); z-index: 100; align-items: center; justify-content: center; padding: 1rem; }
+    .overlay.open { display: flex; }
+    .overlay-card { max-width: 520px; width: 100%; max-height: 88vh; overflow-y: auto; box-shadow: 0 24px 48px -12px rgba(36,44,72,0.35); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1><span class="mi">image</span> Cuadro Control</h1>
+        <p style="color: var(--muted); font-size: 0.9rem;">Good Display 7.09" Spectra 6 IoT Remote E-Paper</p>
+      </div>
+      <div id="authBox" style="display: flex; gap: 0.6rem; align-items: center;">
+        <a href="/emulator.html" class="btn" style="text-decoration: none; background: #059669;"><span class="mi">developer_board</span> Frame Emulator</a>
+        <button class="btn btn-secondary btn-sm" onclick="handleLogout()"><span class="mi">logout</span> Sign Out</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Photo Library & Queue</h2>
+        <div class="stat-val" id="photoCount">-</div>
+        <p style="color: var(--muted); font-size: 0.85rem;" id="queueStats">Queued Photos: -</p>
+        <select id="uploadTargetSource" style="width: 100%; padding: 0.5rem; margin-bottom: 0.6rem;">
+          <option value="">Unassigned (whole library)</option>
+        </select>
+        <div class="actions">
+          <label class="btn" style="cursor: pointer;">
+            Upload Photo
+            <input type="file" id="fileInput" accept="image/*" style="display: none;" onchange="uploadPhoto(this.files[0])">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab navigation -->
+    <nav class="tabs">
+      <button type="button" class="tab-btn active" data-tab="frames"><span class="mi">dashboard_2</span> Frames</button>
+      <button type="button" class="tab-btn" data-tab="album-sources"><span class="mi">cloud_sync</span> Album Sources</button>
+      <button type="button" class="tab-btn" data-tab="library"><span class="mi">collections</span> Library</button>
+      <button type="button" class="tab-btn" data-tab="defaults"><span class="mi">tune</span> Defaults</button>
+    </nav>
+
+    <!-- ============ FRAMES TAB ============ -->
+    <section id="tab-frames" class="tab-panel active">
+      <div class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2>Connected Frames</h2>
+          <span style="font-size: 0.8rem; color: var(--muted);">Auto-refreshes every 15s</span>
+        </div>
+        <div id="framesGrid" class="entity-grid">
+          <p class="empty-state">Loading frames...</p>
+        </div>
+        <p style="color: var(--muted); font-size: 0.75rem; margin-top: 1rem;">Click "Edit" on a frame to see full details, assign album sources, and override defaults just for that frame.</p>
+      </div>
+    </section>
+
+    <!-- ============ ALBUM SOURCES TAB ============ -->
+    <section id="tab-album-sources" class="tab-panel">
+      <div class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <h2><span class="mi">cloud_sync</span> Album Sources</h2>
+          <button class="btn btn-sm" data-action="add-album-source"><span class="mi">add</span> Add Source</button>
+        </div>
+        <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 0.5rem;">
+          A named, reusable connection to Google Photos, Immich, or an iCloud shared album. Assign sources to one or
+          more frames from that frame's edit sheet in the Frames tab &mdash; frames with no sources assigned show
+          your entire library.
+        </p>
+        <div id="albumSourcesGrid" class="entity-grid">
+          <p class="empty-state">Loading album sources...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LIBRARY TAB ============ -->
+    <section id="tab-library" class="tab-panel">
+      <div class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2><span class="mi">collections</span> Ingested Photo Library</h2>
+          <span id="galleryCount" style="font-size: 0.8rem; color: var(--muted);">0 Photos</span>
+        </div>
+        <div id="photosGallery">
+          <p class="empty-state">Loading library...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ DEFAULTS TAB ============ -->
+    <section id="tab-defaults" class="tab-panel">
+      <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 1.5rem;">
+        These are the global defaults applied to every frame. Any frame can override individual settings from its
+        own edit sheet in the Frames tab.
+      </p>
+
+      <!-- Display Orientation & Passe-Partout Matting Settings -->
+      <div class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <h2><span class="mi">straighten</span> Display Mounting &amp; Orientation Settings</h2>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-sm btn-secondary" onclick="reprocessAllPhotos()" title="Re-render all photos in library with current orientation & matting">
+              <span class="mi">refresh</span> Reprocess All Photos
+            </button>
+            <button class="btn btn-sm" onclick="saveDisplaySettings()"><span class="mi">save</span> Save Display Settings</button>
+          </div>
+        </div>
+        <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+          Automatic aspect-ratio detection and passe-partout matting. Controls how landscape and portrait photos map onto your physical frame.
+        </p>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem;">
+          <div>
+            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.4rem;">
+              <span class="mi">aspect_ratio</span> Physical Frame Mounting Orientation
+            </label>
+            <select id="frameOrientation" style="width: 100%; padding: 0.6rem;">
+              <option value="portrait_180">Portrait — Inverted 180° (Ribbon Cable at Top)</option>
+              <option value="portrait">Portrait — Standard 0° (Ribbon Cable at Bottom)</option>
+              <option value="landscape">Landscape — 90° (Ribbon Cable at Left)</option>
+              <option value="landscape_270">Landscape — 270° (Ribbon Cable at Right)</option>
+            </select>
+            <p style="color: var(--muted); font-size: 0.75rem; margin-top: 0.4rem;">
+              Select how your frame is mounted. When the ribbon cable exits from the top, "Portrait — Inverted 180°" keeps all photos right-side up.
+            </p>
+          </div>
+
+          <div>
+            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.4rem;">
+              <span class="mi">palette</span> Aspect Ratio Mismatch Fit Style
+            </label>
+            <select id="fitMode" style="width: 100%; padding: 0.6rem;">
+              <option value="matting">Passe-Partout Matting (Pure White E-Ink Border — Recommended)</option>
+              <option value="cover">Smart Full Bleed (Cover / Center Crop)</option>
+              <option value="rotate">Auto-Rotate 90° (Fill Screen Sideways)</option>
+            </select>
+            <p style="color: var(--muted); font-size: 0.75rem; margin-top: 0.4rem;">
+              <b>Passe-Partout Matting</b> keeps all photos upright and uncropped with elegant museum-grade white borders (nibble 0x11).
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scheduled Refresh (Timezone-Aware) -->
+      <div class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h2><span class="mi">schedule</span> Scheduled Refresh</h2>
+          <button class="btn btn-sm" onclick="saveRefreshSchedule()"><span class="mi">save</span> Save Schedule</button>
+        </div>
+        <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+          Pick a time in the <b>display's own timezone</b> — the server automatically converts it to its own local
+          time, regardless of where the backend is hosted (e.g. display in Colombia, server in Germany). The frame
+          just receives "sleep for N seconds" and stays completely unaware of timezones.
+        </p>
+
+        <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem;">
+          <input type="checkbox" id="scheduleEnabled" style="width: 18px; height: 18px;" onchange="toggleScheduleFields('schedule')">
+          <label for="scheduleEnabled" style="font-size: 0.9rem; font-weight: 600;">Enable scheduled daily refresh</label>
+        </div>
+
+        <div id="scheduleFields">
+          <div style="margin-bottom: 1.25rem;">
+            <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.4rem;">
+              <span class="mi">public</span> Display's Timezone
+            </label>
+            <select id="scheduleTimezone" style="width: 100%; max-width: 400px; padding: 0.6rem;"></select>
+          </div>
+
+          <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.4rem;">
+            <span class="mi">schedule</span> Refresh Times (local to the display) — the frame wakes at whichever of these is soonest
+          </label>
+          <div id="scheduleTimesList" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.6rem;"></div>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="addScheduleTimeRow('scheduleTimesList')"><span class="mi">add</span> Add Another Time</button>
+        </div>
+        <p id="scheduleStatus" style="color: var(--muted); font-size: 0.8rem; margin-top: 1rem;"></p>
+        <p style="color: var(--muted); font-size: 0.75rem; margin-top: 0.4rem;">
+          When disabled, the frame refreshes on a fixed interval (<code>DEFAULT_SLEEP_SECONDS</code>) instead. The
+          24-hour panel safety watchdog still applies either way — the frame will never go longer than ~24h without
+          a refresh even if the schedule computation is somehow off.
+        </p>
+      </div>
+
+      <!-- epdoptimize JSON Configuration Import -->
+      <div class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+          <h2><span class="mi">tune</span> epdoptimize Configuration (JSON)</h2>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <a class="btn btn-sm btn-secondary" href="https://paperlesspaper.github.io/epdoptimize/" target="_blank" rel="noopener noreferrer">
+              <span class="mi">link</span> Open epdoptimize Web Tool <span class="mi">open_in_new</span>
+            </a>
+            <button class="btn btn-sm btn-secondary" onclick="resetEpdConfigToDefault()"><span class="mi">restart_alt</span> Reset to Default</button>
+            <button class="btn btn-sm" onclick="saveEpdConfig()"><span class="mi">save</span> Save &amp; Reprocess Library</button>
+          </div>
+        </div>
+        <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem;">
+          Design a preset in the official <a href="https://paperlesspaper.github.io/epdoptimize/" target="_blank" rel="noopener noreferrer">epdoptimize tool</a>, export its JSON configuration, and paste it below. It is applied across the entire processing pipeline (palette, dynamic range compression, dithering).
+        </p>
+        <textarea id="epdConfigJson" spellcheck="false" style="width: 100%; min-height: 220px; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'SF Mono', Consolas, monospace; font-size: 0.8rem; line-height: 1.4;"></textarea>
+        <p id="epdConfigStatus" style="color: var(--muted); font-size: 0.75rem; margin-top: 0.4rem;"></p>
+      </div>
+
+      <!-- Photo Sources & Cloud Album Sync Configuration -->
+      <div class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <h2><span class="mi">cloud_sync</span> Cloud Album Sync Sources (Global Fallback)</h2>
+          <button class="btn btn-sm" onclick="triggerSync()"><span class="mi">sync</span> Sync All Albums Now</button>
+        </div>
+        <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+          Configure your cloud photo albums. Photos are periodically ingested, tone-mapped in CIELAB space, Atkinson dithered, and packed into 960 KB binary frames.
+          This is the whole-library fallback used by any frame with no dedicated Album Source assigned to it &mdash;
+          see the <b>Album Sources</b> tab to create multiple named, reusable sources for individual frames.
+        </p>
+
+        <!-- Google Photos Section -->
+        <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; background: var(--input-bg);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h3 style="font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem;">
+              <span><span class="mi">photo_camera</span> Google Photos</span>
+              <span id="gphotosBadge" class="status-badge badge-storage" style="font-size: 0.75rem;">Not Configured</span>
+            </h3>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-sm btn-secondary" onclick="testAlbum('google_photos')">Test Connection</button>
+              <button class="btn btn-sm" onclick="saveGooglePhotos()">Save & Apply</button>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 0.75rem;">
+            <label style="font-size: 0.85rem; font-weight: 600; color: var(--text); display: block; margin-bottom: 0.35rem;">
+              <span class="mi">link</span> Public Shared Album Link <span style="color: var(--success); font-weight: normal;">(Zero Setup — Recommended)</span>
+            </label>
+            <input type="text" id="gpShareUrl" placeholder="https://photos.app.goo.gl/... or https://photos.google.com/share/..." style="width: 100%; padding: 0.6rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
+            <p style="color: var(--muted); font-size: 0.75rem; margin-top: 0.35rem;">
+              Open your album in Google Photos on your phone, click <b>Share</b> &gt; <b>Create link</b>, and paste it here! No Google Cloud account or API keys needed.
+            </p>
+          </div>
+
+          <details style="margin-top: 0.75rem;">
+            <summary style="font-size: 0.75rem; color: var(--muted); cursor: pointer; user-select: none;">
+              <span class="mi">settings</span> Advanced: Google Cloud OAuth 2.0 API (Optional)
+            </summary>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--border);">
+              <div>
+                <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem;">OAuth Client ID</label>
+                <input type="text" id="gpClientId" placeholder="12345...apps.googleusercontent.com" style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem;">OAuth Client Secret</label>
+                <input type="password" id="gpClientSecret" placeholder="GOCSPX-..." style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem;">OAuth Refresh Token</label>
+                <input type="password" id="gpRefreshToken" placeholder="1//04..." style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
+              </div>
+              <div>
+                <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem;">Google Photos Album ID</label>
+                <input type="text" id="gpAlbumId" placeholder="AI5P..." style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <!-- Immich Section -->
+        <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.25rem; background: var(--input-bg);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h3 style="font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem;">
+              <span><span class="mi">dns</span> Immich Self-Hosted</span>
+              <span id="immichBadge" class="status-badge badge-storage" style="font-size: 0.75rem;">Not Configured</span>
+            </h3>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-sm btn-secondary" onclick="testAlbum('immich')">Test Connection</button>
+              <button class="btn btn-sm" onclick="saveImmich()">Save & Apply</button>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem;">
+            <div>
+              <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem;">Immich Host URL</label>
+              <input type="text" id="immichHost" placeholder="http://192.168.178.4:2283" style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem;">API Key</label>
+              <input type="password" id="immichApiKey" placeholder="immich_api_key_..." style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem;">Album UUID</label>
+              <input type="text" id="immichAlbumId" placeholder="123e4567-e89b-..." style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
+            </div>
+          </div>
+        </div>
+
+        <!-- iCloud Shared Album Section -->
+        <div style="border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; background: var(--input-bg);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h3 style="font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem;">
+              <span><span class="mi">cloud</span> Apple iCloud Shared Album</span>
+              <span id="icloudBadge" class="status-badge badge-storage" style="font-size: 0.75rem;">Not Configured</span>
+            </h3>
+            <div style="display: flex; gap: 0.5rem;">
+              <button class="btn btn-sm btn-secondary" onclick="testAlbum('icloud')">Test Connection</button>
+              <button class="btn btn-sm" onclick="saveIcloud()">Save & Apply</button>
+            </div>
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem;">Public Shared Album Web Token or URL</label>
+            <input type="text" id="icloudToken" placeholder="e.g. B01G9HKsJ2x... or https://www.icloud.com/sharedalbum/#B01..." style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Frame Detail / Edit Sheet -->
+  <div id="frameDetailOverlay" class="overlay" onclick="if (event.target === this) closeFrameDetail()">
+    <div class="card overlay-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 id="frameDetailTitle">Frame</h2>
+        <button class="btn btn-sm btn-secondary" onclick="closeFrameDetail()"><span class="mi">close</span></button>
+      </div>
+      <div id="frameDetailBody" style="display: flex; flex-direction: column; gap: 0.9rem; font-size: 0.9rem;"></div>
+    </div>
+  </div>
+
+  <!-- Album Source Add/Edit Modal -->
+  <div id="albumSourceOverlay" class="overlay" onclick="if (event.target === this) closeAlbumSourceForm()">
+    <div class="card overlay-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2 id="albumSourceFormTitle">Add Album Source</h2>
+        <button class="btn btn-sm btn-secondary" onclick="closeAlbumSourceForm()"><span class="mi">close</span></button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.9rem;">
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Source Name</label>
+          <input type="text" id="asName" placeholder="e.g. Grandma's Album" style="width: 100%; padding: 0.6rem;">
+        </div>
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Type</label>
+          <select id="asType" style="width: 100%; padding: 0.6rem;" onchange="onAlbumSourceTypeChange()">
+            <option value="google_photos">Google Photos</option>
+            <option value="immich">Immich Self-Hosted</option>
+            <option value="icloud">Apple iCloud Shared Album</option>
+            <option value="manual">Manual Upload (No Cloud Provider)</option>
+          </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <input type="checkbox" id="asEnabled" checked style="width: 18px; height: 18px;">
+          <label for="asEnabled" style="font-size: 0.85rem; font-weight: 600;">Enabled</label>
+        </div>
+
+        <!-- Google Photos fields -->
+        <div id="asFields-google_photos" class="as-type-fields">
+          <div style="margin-bottom: 0.75rem;">
+            <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem;">Public Shared Album Link (Recommended)</label>
+            <input type="text" id="asGpShareUrl" placeholder="https://photos.app.goo.gl/..." style="width: 100%; padding: 0.5rem;">
+          </div>
+          <details>
+            <summary style="font-size: 0.75rem; color: var(--muted); cursor: pointer;">Advanced: OAuth 2.0 API (Optional)</summary>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+              <input type="text" id="asGpClientId" placeholder="OAuth Client ID" style="width: 100%; padding: 0.5rem;">
+              <input type="password" id="asGpClientSecret" placeholder="OAuth Client Secret" style="width: 100%; padding: 0.5rem;">
+              <input type="password" id="asGpRefreshToken" placeholder="OAuth Refresh Token" style="width: 100%; padding: 0.5rem;">
+              <input type="text" id="asGpAlbumId" placeholder="Google Photos Album ID" style="width: 100%; padding: 0.5rem;">
+            </div>
+          </details>
+        </div>
+
+        <!-- Immich fields -->
+        <div id="asFields-immich" class="as-type-fields" style="display: none;">
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <input type="text" id="asImmichHost" placeholder="Immich Host URL (http://192.168.x.x:2283)" style="width: 100%; padding: 0.5rem;">
+            <input type="password" id="asImmichApiKey" placeholder="API Key" style="width: 100%; padding: 0.5rem;">
+            <input type="text" id="asImmichAlbumId" placeholder="Album UUID" style="width: 100%; padding: 0.5rem;">
+          </div>
+        </div>
+
+        <!-- iCloud fields -->
+        <div id="asFields-icloud" class="as-type-fields" style="display: none;">
+          <input type="text" id="asIcloudToken" placeholder="Shared Album Web Token or URL" style="width: 100%; padding: 0.5rem;">
+        </div>
+
+        <!-- Manual Upload fields (none - just a named bucket) -->
+        <div id="asFields-manual" class="as-type-fields" style="display: none;">
+          <p class="hint-box">No configuration needed. Upload photos directly into this bucket from the Library tab, or assign existing photos to it there.</p>
+        </div>
+
+        <p id="albumSourceFormStatus" style="color: var(--muted); font-size: 0.8rem;"></p>
+        <div class="actions">
+          <button class="btn" onclick="saveAlbumSource()"><span class="mi">save</span> Save Source</button>
+          <button class="btn btn-secondary" onclick="closeAlbumSourceForm()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function getAuthHeaders() {
+      // Admin session is carried via the HttpOnly session cookie (sent automatically
+      // on same-origin requests); nothing is read from localStorage.
+      return { 'Content-Type': 'application/json' };
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
+    function formatElapsed(seconds) {
+      if (seconds == null || isNaN(seconds)) return '-';
+      if (seconds < 60) return `${seconds}s`;
+      const mins = Math.floor(seconds / 60);
+      if (mins < 60) return `${mins}m`;
+      const hours = Math.floor(mins / 60);
+      return `${hours}h ${mins % 60}m`;
+    }
+
+    function formatDateTime(ms) {
+      return ms ? new Date(ms).toLocaleString() : '-';
+    }
+
+    async function handleLogout() {
+      try {
+        await fetch('/api/v1/auth/logout', { method: 'POST' });
+      } catch (e) {}
+      window.location.href = '/login.html';
+    }
+
+    // ---------------------------------------------------------------------
+    // Tiny fetch wrapper. The album-sources / extended-frames endpoints are
+    // being built in parallel on the backend and may 404 until that work
+    // lands - every call site here treats a 404 (or network error) as "no
+    // data yet" and renders an empty state instead of crashing the page.
+    // Swapping in the real endpoints later is a no-op: these already hit the
+    // real contracted paths, this just centralizes 401/404/error handling.
+    // ---------------------------------------------------------------------
+    async function apiRequest(path, options = {}) {
+      try {
+        const res = await fetch(path, { headers: getAuthHeaders(), ...options });
+        if (res.status === 401) {
+          window.location.href = '/login.html';
+          return { ok: false, notFound: false, status: 401, data: null };
+        }
+        if (res.status === 404) {
+          return { ok: false, notFound: true, status: 404, data: null };
+        }
+        let data = null;
+        try { data = await res.json(); } catch (e) { /* empty body */ }
+        return { ok: res.ok, notFound: false, status: res.status, data };
+      } catch (err) {
+        console.error('API request failed:', path, err);
+        return { ok: false, notFound: false, status: 0, data: null, error: err };
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // Tabs
+    // ---------------------------------------------------------------------
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === name));
+      document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.id === `tab-${name}`));
+    }
+
+    document.querySelector('.tabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab-btn');
+      if (btn) switchTab(btn.dataset.tab);
+    });
+
+    // ---------------------------------------------------------------------
+    // Status / Frames
+    // ---------------------------------------------------------------------
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/v1/admin/status', {
+          headers: getAuthHeaders()
+        });
+        if (res.status === 401) {
+          window.location.href = '/login.html';
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+
+        document.getElementById('photoCount').textContent = `${data.stats.photoCount} Photos`;
+        document.getElementById('queueStats').textContent = `Queued: ${data.stats.queuedCount} pending`;
+
+        const scheduleStatusEl = document.getElementById('scheduleStatus');
+        if (scheduleStatusEl) {
+          if (data.refreshSchedule?.enabled && data.refreshSchedule.nextRefreshAt) {
+            const next = new Date(data.refreshSchedule.nextRefreshAt);
+            scheduleStatusEl.textContent = `Next scheduled refresh: ${next.toLocaleString()} (your browser's local time)`;
+          } else {
+            scheduleStatusEl.textContent = '';
+          }
+        }
+
+        // The live backend embeds per-frame overrides (frameOrientation, fitMode,
+        // epdoptimizeConfig, refreshSchedule) and assigned album sources directly in
+        // /admin/status's frames array, rather than via a separate /admin/frames
+        // endpoint - so this single poll already carries everything renderFrames()
+        // needs. albumSourceNames isn't sent as its own field; derive it from the
+        // richer `albumSources` ({id,name,type}[]) array the backend does send.
+        window.__framesBase = Object.fromEntries(data.frames.map(f => [f.id, {
+          ...f,
+          albumSourceNames: Array.isArray(f.albumSources) ? f.albumSources.map(s => s.name) : (f.albumSourceNames || [])
+        }]));
+        renderFrames();
+      } catch (err) {
+        console.error('Fetch status error:', err);
+      }
+    }
+
+    // GET /api/v1/admin/frames - the contract's dedicated extended frame list
+    // endpoint. The live backend currently folds this data into /admin/status
+    // instead (see fetchStatus above), so this 404s today; it's still called
+    // and merged in case a future backend build adds the dedicated endpoint,
+    // in which case it would simply start overriding the /status-derived data.
+    async function fetchFramesExtended() {
+      const result = await apiRequest('/api/v1/admin/frames');
+      if (result.ok && Array.isArray(result.data?.frames || result.data)) {
+        const list = result.data.frames || result.data;
+        window.__framesExt = Object.fromEntries(list.map(f => [f.id, f]));
+        renderFrames();
+      }
+    }
+
+    function getMergedFrame(frameId) {
+      const base = (window.__framesBase || {})[frameId] || {};
+      const ext = (window.__framesExt || {})[frameId] || {};
+      return { ...base, ...ext, id: frameId };
+    }
+
+    function renderFrames() {
+      const grid = document.getElementById('framesGrid');
+      const base = window.__framesBase || {};
+      const ids = Object.keys(base);
+
+      window.__framesById = Object.fromEntries(ids.map(id => [id, getMergedFrame(id)]));
+
+      if (ids.length === 0) {
+        grid.innerHTML = '<p class="empty-state">No frames registered yet.</p>';
+        return;
+      }
+
+      grid.innerHTML = ids.map(id => {
+        const f = window.__framesById[id];
+        const stateBadge = f.storageMode
+          ? '<span class="status-badge badge-storage"><span class="mi">inventory_2</span> Storage Mode</span>'
+          : f.state === 'active'
+          ? '<span class="status-badge badge-active"><span class="mi">check_circle</span> Active</span>'
+          : f.state === 'sleeping'
+          ? '<span class="status-badge badge-sleeping"><span class="mi">bedtime</span> Sleeping</span>'
+          : f.state === 'overdue'
+          ? '<span class="status-badge badge-overdue"><span class="mi">warning</span> Overdue</span>'
+          : '<span class="status-badge badge-offline"><span class="mi">cancel</span> Offline</span>';
+
+        const imageId = f.current_image_id;
+        const isRealPhoto = imageId && !imageId.startsWith('test_pattern') && !imageId.startsWith('white_storage');
+        const currentThumb = isRealPhoto
+          ? `<img class="frame-card-thumb" src="/api/v1/admin/photos/${encodeURIComponent(imageId)}/thumb" alt="${escapeHtml(imageId)}" onerror="this.style.display='none'">`
+          : `<div class="frame-card-thumb" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.8rem;">No image yet</div>`;
+
+        // "Up next" preview - only shown when there's a real, different photo queued, so an
+        // empty library or a shuffle landing back on the same photo doesn't clutter the card.
+        const nextId = f.nextPhotoId;
+        const hasRealNext = nextId && nextId !== imageId && !nextId.startsWith('test_pattern') && !nextId.startsWith('white_storage');
+        const thumb = hasRealNext
+          ? `<div style="display: flex; align-items: center; gap: 0.4rem;">
+              <div style="flex: 1; min-width: 0;">${currentThumb}</div>
+              <span class="mi" style="color: var(--muted); font-size: 1.4rem; flex-shrink: 0;" title="Up next on the following sync">arrow_forward</span>
+              <div style="flex: 1; min-width: 0; position: relative;">
+                <img class="frame-card-thumb" style="opacity: 0.7;" src="/api/v1/admin/photos/${encodeURIComponent(nextId)}/thumb" alt="${escapeHtml(nextId)}" onerror="this.style.display='none'">
+                <span style="position: absolute; bottom: 0.3rem; left: 0.3rem; right: 0.3rem; background: rgba(0,0,0,0.55); color: #fff; font-size: 0.65rem; text-align: center; padding: 0.1rem 0; border-radius: 4px;">Up Next</span>
+              </div>
+            </div>`
+          : currentThumb;
+
+        const nextRefresh = f.next_expected_refresh_at
+          ? escapeHtml(formatDateTime(f.next_expected_refresh_at))
+          : 'Not yet known';
+
+        const sourceNames = Array.isArray(f.albumSourceNames) && f.albumSourceNames.length > 0
+          ? f.albumSourceNames.map(escapeHtml).join(', ')
+          : 'Entire library (no sources assigned)';
+
+        return `
+          <div class="entity-card">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+              <div>
+                <h3 style="font-size: 1.05rem;">${escapeHtml(f.name)}</h3>
+                <code style="font-size: 0.75rem; color: var(--muted);">${escapeHtml(f.id)}</code>
+              </div>
+              ${stateBadge}
+            </div>
+            ${thumb}
+            <div style="font-size: 0.78rem; color: var(--muted);">
+              <div><span class="mi" style="font-size: 1em;">schedule</span> Next refresh: ${nextRefresh}</div>
+              <div style="margin-top: 0.2rem;"><span class="mi" style="font-size: 1em;">cloud_sync</span> Sources: ${sourceNames}</div>
+            </div>
+            <div class="actions" style="margin-top: 0.25rem; flex-wrap: wrap;">
+              <button class="btn btn-sm btn-secondary" data-action="edit-frame" data-frame-id="${escapeHtml(f.id)}"><span class="mi">edit</span> Edit</button>
+              <button class="btn btn-sm ${f.storageMode ? '' : 'btn-warning'}" data-action="toggle-frame-storage" data-frame-id="${escapeHtml(f.id)}" title="Clear panel to white and stop pulling new photos">
+                <span class="mi">inventory_2</span> ${f.storageMode ? 'Exit Storage Mode' : 'Storage Mode'}
+              </button>
+              <button class="btn btn-sm btn-secondary" data-action="sync-frame" data-frame-id="${escapeHtml(f.id)}" title="Sync this frame's album sources now"><span class="mi">sync</span> Sync</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function toggleFrameStorageMode(frameId) {
+      const f = getMergedFrame(frameId);
+      const result = await apiRequest(`/api/v1/admin/frames/${encodeURIComponent(frameId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ storageMode: !f.storageMode })
+      });
+      if (result.ok) {
+        await fetchStatus();
+      } else {
+        alert('Failed to toggle storage mode.');
+      }
+    }
+
+    async function syncFrameNow(frameId) {
+      const btn = document.querySelector(`[data-action="sync-frame"][data-frame-id="${CSS.escape(frameId)}"]`);
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="mi">sync</span> Syncing...'; }
+      const result = await apiRequest(`/api/v1/admin/frames/${encodeURIComponent(frameId)}/sync`, { method: 'POST' });
+      if (result.ok) {
+        alert(`Sync complete: ${result.data.photosIngested} new photo(s) from ${result.data.sourcesSynced} source(s).`);
+        fetchStatus();
+        fetchPhotos();
+      } else {
+        alert('Failed to sync this frame\'s sources.');
+        renderFrames();
+      }
+    }
+
+    async function deleteFrame(frameId) {
+      if (!confirm(`Remove frame "${frameId}" from the registry?`)) return false;
+      try {
+        const res = await fetch(`/api/v1/admin/frames/${encodeURIComponent(frameId)}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        if (res.ok) {
+          fetchStatus();
+          return true;
+        }
+        return false;
+      } catch (err) {
+        alert('Error removing frame: ' + err.message);
+        return false;
+      }
+    }
+
+    // Event delegation for dynamically-rendered cards: avoids building
+    // onclick="...('${id}')" strings from server-controlled data.
+    document.getElementById('framesGrid').addEventListener('click', (e) => {
+      const editBtn = e.target.closest('[data-action="edit-frame"]');
+      if (editBtn) { openFrameDetail(editBtn.dataset.frameId); return; }
+      const storageBtn = e.target.closest('[data-action="toggle-frame-storage"]');
+      if (storageBtn) { toggleFrameStorageMode(storageBtn.dataset.frameId); return; }
+      const syncBtn = e.target.closest('[data-action="sync-frame"]');
+      if (syncBtn) syncFrameNow(syncBtn.dataset.frameId);
+    });
+
+    // ---------------------------------------------------------------------
+    // Frame Detail / Edit Sheet
+    // ---------------------------------------------------------------------
+    function albumSourceIcon(type) {
+      if (type === 'google_photos') return 'photo_camera';
+      if (type === 'immich') return 'dns';
+      if (type === 'icloud') return 'cloud';
+      if (type === 'manual') return 'upload_file';
+      return 'cloud_sync';
+    }
+
+    async function openFrameDetail(frameId) {
+      const f = (window.__framesById || {})[frameId];
+      if (!f) return;
+
+      // Make sure we have the latest album sources list to build the
+      // multi-select checkboxes from.
+      if (!window.__albumSources) await fetchAlbumSources();
+
+      document.getElementById('frameDetailTitle').textContent = f.name || f.id;
+
+      const stateLabel = f.state === 'active' ? 'Active' : f.state === 'sleeping' ? 'Sleeping' : f.state === 'overdue' ? 'Overdue' : 'Offline';
+      const imageId = f.current_image_id;
+      const isRealPhoto = imageId && !imageId.startsWith('test_pattern') && !imageId.startsWith('white_storage');
+
+      const nameSection = `
+        <div style="display: flex; gap: 0.5rem; align-items: flex-end;">
+          <div style="flex: 1;">
+            <label style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 0.3rem;">Frame Name</label>
+            <input type="text" id="fdNameInput" value="${escapeHtml(f.name || '')}" placeholder="e.g. Living Room" style="width: 100%; padding: 0.5rem;">
+          </div>
+          <button class="btn btn-sm" data-action="save-frame-name" data-frame-id="${escapeHtml(f.id)}"><span class="mi">save</span> Rename</button>
+        </div>
+      `;
+
+      const rows = [
+        ['Frame ID', `<code>${escapeHtml(f.id)}</code>`],
+        ['Status', escapeHtml(stateLabel)],
+        ['Last Check-in', escapeHtml(formatDateTime(f.last_checkin_at))],
+        ['Last Refresh', escapeHtml(formatDateTime(f.last_refresh_at))],
+        ['Next Expected Refresh', f.next_expected_refresh_at ? escapeHtml(formatDateTime(f.next_expected_refresh_at)) : 'Indefinite (Storage Mode) or not yet known'],
+        ['Battery', f.battery_voltage ? `${f.battery_voltage.toFixed(2)} V` : '-'],
+        ['Firmware', escapeHtml(f.firmware_version) || '-']
+      ];
+
+      const rowsHtml = rows.map(([label, value]) => `
+        <div style="display: flex; justify-content: space-between; gap: 1rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border);">
+          <span style="color: var(--muted);">${label}</span>
+          <span style="font-weight: 600; text-align: right;">${value}</span>
+        </div>
+      `).join('');
+
+      const imageSection = imageId
+        ? `
+          <div>
+            <div style="color: var(--muted); margin-bottom: 0.5rem;">Currently Displayed Image</div>
+            ${isRealPhoto
+              ? `<img src="/api/v1/admin/photos/${encodeURIComponent(imageId)}/thumb" alt="${escapeHtml(imageId)}" style="width: 100%; max-height: 220px; object-fit: contain; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px;" onerror="this.style.display='none'">`
+              : ''}
+            <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.4rem;"><code>${escapeHtml(imageId)}</code></div>
+          </div>
+        `
+        : `<div style="color: var(--muted);">No confirmed image yet.</div>`;
+
+      const sources = window.__albumSources || [];
+      const assignedIds = new Set(Array.isArray(f.albumSourceIds) ? f.albumSourceIds : []);
+      const sourcesSection = `
+        <div>
+          <h3 style="font-size: 1rem; margin-bottom: 0.5rem;"><span class="mi">cloud_sync</span> Assigned Album Sources</h3>
+          ${sources.length === 0
+            ? '<p class="hint-box">No album sources have been created yet. Add one from the Album Sources tab, then assign it here.</p>'
+            : `<div style="display: flex; flex-direction: column; gap: 0.1rem;">
+                ${sources.map(s => `
+                  <label class="checkbox-row">
+                    <input type="checkbox" class="frame-source-checkbox" value="${escapeHtml(s.id)}" ${assignedIds.has(s.id) ? 'checked' : ''}>
+                    <span class="mi">${albumSourceIcon(s.type)}</span>
+                    <span>${escapeHtml(s.name)}</span>
+                  </label>
+                `).join('')}
+              </div>`
+          }
+          <p id="frameSourcesHint" class="hint-box"></p>
+          <div class="actions">
+            <button class="btn btn-sm" data-action="save-frame-sources" data-frame-id="${escapeHtml(f.id)}"><span class="mi">save</span> Save Sources</button>
+          </div>
+        </div>
+      `;
+
+      const overridesSection = buildFrameOverridesHtml(f);
+
+      const dangerSection = `
+        <div>
+          <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--danger);"><span class="mi">warning</span> Danger Zone</h3>
+          <p style="color: var(--muted); font-size: 0.78rem; margin-bottom: 0.6rem;">Removes this frame from the registry. The physical device is unaffected and will simply re-register itself on its next poll.</p>
+          <button class="btn btn-sm btn-danger" data-action="delete-frame-in-sheet" data-frame-id="${escapeHtml(f.id)}"><span class="mi">delete</span> Remove Frame</button>
+        </div>
+      `;
+
+      document.getElementById('frameDetailBody').innerHTML = nameSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + rowsHtml + imageSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + sourcesSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + overridesSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + dangerSection;
+      document.getElementById('frameDetailOverlay').classList.add('open');
+
+      // Wire up hint text + population for the sheet we just rendered.
+      updateFrameSourcesHint();
+      document.querySelectorAll('.frame-source-checkbox').forEach(cb => cb.addEventListener('change', updateFrameSourcesHint));
+
+      initFrameOverridesState(f);
+    }
+
+    function updateFrameSourcesHint() {
+      const hint = document.getElementById('frameSourcesHint');
+      if (!hint) return;
+      const checked = document.querySelectorAll('.frame-source-checkbox:checked').length;
+      hint.textContent = checked === 0
+        ? 'No sources assigned — this frame will show your entire library.'
+        : `${checked} source${checked === 1 ? '' : 's'} assigned — this frame will only show photos from ${checked === 1 ? 'it' : 'them'}.`;
+    }
+
+    async function saveFrameSources(frameId) {
+      const ids = Array.from(document.querySelectorAll('.frame-source-checkbox:checked')).map(cb => cb.value);
+      const result = await apiRequest(`/api/v1/admin/frames/${encodeURIComponent(frameId)}/album-sources`, {
+        method: 'PUT',
+        body: JSON.stringify({ albumSourceIds: ids })
+      });
+      if (result.notFound) {
+        alert('The album-source assignment endpoint is not available on this backend yet.');
+        return;
+      }
+      if (result.ok) {
+        // Re-pull both: the live backend folds album-source assignments into
+        // /admin/status's frames array (fetchStatus), while fetchFramesExtended
+        // covers the dedicated /admin/frames endpoint from the contract, if a
+        // future backend build adds it.
+        await Promise.all([fetchStatus(), fetchFramesExtended()]);
+        openFrameDetail(frameId);
+      } else {
+        alert('Failed to save album source assignment.');
+      }
+    }
+
+    async function saveFrameName(frameId) {
+      const name = document.getElementById('fdNameInput').value.trim();
+      if (!name) {
+        alert('Please enter a name.');
+        return;
+      }
+      const result = await apiRequest(`/api/v1/admin/frames/${encodeURIComponent(frameId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ name })
+      });
+      if (result.ok) {
+        document.getElementById('frameDetailTitle').textContent = name;
+        await Promise.all([fetchStatus(), fetchFramesExtended()]);
+      } else {
+        alert('Failed to rename frame.');
+      }
+    }
+
+    document.getElementById('frameDetailBody').addEventListener('click', async (e) => {
+      const sourcesBtn = e.target.closest('[data-action="save-frame-sources"]');
+      if (sourcesBtn) { saveFrameSources(sourcesBtn.dataset.frameId); return; }
+      const nameBtn = e.target.closest('[data-action="save-frame-name"]');
+      if (nameBtn) { saveFrameName(nameBtn.dataset.frameId); return; }
+      const deleteBtn = e.target.closest('[data-action="delete-frame-in-sheet"]');
+      if (deleteBtn) {
+        const deleted = await deleteFrame(deleteBtn.dataset.frameId);
+        if (deleted) closeFrameDetail();
+      }
+    });
+
+    function closeFrameDetail() {
+      document.getElementById('frameDetailOverlay').classList.remove('open');
+    }
+
+    // --- Per-frame override fields (orientation / fit mode / epdoptimize / schedule) ---
+
+    const OVERRIDE_FIELDS = [
+      { key: 'frameOrientation', label: 'Frame Orientation', icon: 'aspect_ratio' },
+      { key: 'fitMode', label: 'Fit Mode', icon: 'palette' },
+      { key: 'epdoptimizeConfig', label: 'epdoptimize Configuration', icon: 'tune' },
+      { key: 'refreshSchedule', label: 'Refresh Schedule', icon: 'schedule' }
+    ];
+
+    function buildFrameOverridesHtml(f) {
+      const fields = OVERRIDE_FIELDS.map(({ key, label, icon }) => {
+        const hasOverride = f[key] !== null && f[key] !== undefined;
+        let bodyHtml = '';
+
+        if (key === 'frameOrientation') {
+          bodyHtml = `
+            <select id="ovr-frameOrientation" style="width: 100%; padding: 0.5rem;">
+              <option value="portrait_180">Portrait — Inverted 180°</option>
+              <option value="portrait">Portrait — Standard 0°</option>
+              <option value="landscape">Landscape — 90°</option>
+              <option value="landscape_270">Landscape — 270°</option>
+            </select>`;
+        } else if (key === 'fitMode') {
+          bodyHtml = `
+            <select id="ovr-fitMode" style="width: 100%; padding: 0.5rem;">
+              <option value="matting">Passe-Partout Matting</option>
+              <option value="cover">Smart Full Bleed (Cover)</option>
+              <option value="rotate">Auto-Rotate 90°</option>
+            </select>`;
+        } else if (key === 'epdoptimizeConfig') {
+          bodyHtml = `<textarea id="ovr-epdoptimizeConfig" spellcheck="false" style="width: 100%; min-height: 140px; padding: 0.6rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'SF Mono', Consolas, monospace; font-size: 0.75rem;"></textarea>`;
+        } else if (key === 'refreshSchedule') {
+          bodyHtml = buildScheduleEditorHtml('ovr-refreshSchedule');
+        }
+
+        return `
+          <div class="override-field" data-override-key="${key}">
+            <div class="override-field-header">
+              <span style="font-weight: 600; font-size: 0.85rem;"><span class="mi">${icon}</span> ${label}</span>
+              <div class="toggle-group" data-override-toggle="${key}">
+                <button type="button" class="toggle-btn ${hasOverride ? '' : 'active'}" data-mode="default">Use Default</button>
+                <button type="button" class="toggle-btn ${hasOverride ? 'active' : ''}" data-mode="custom">Custom</button>
+              </div>
+            </div>
+            <div class="override-field-body" data-override-body="${key}" data-mode="${hasOverride ? 'custom' : 'default'}">
+              ${bodyHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div>
+          <h3 style="font-size: 1rem; margin-bottom: 0.5rem;"><span class="mi">tune</span> Per-Frame Overrides</h3>
+          <p style="color: var(--muted); font-size: 0.78rem; margin-bottom: 0.75rem;">Each setting falls back to the global default (set in the Defaults tab) unless switched to "Custom" here.</p>
+          ${fields}
+          <div class="actions">
+            <button class="btn btn-sm" data-action="save-frame-overrides" data-frame-id="${escapeHtml(f.id)}"><span class="mi">save</span> Save Overrides</button>
+          </div>
+          <p id="frameOverridesStatus" style="color: var(--muted); font-size: 0.78rem; margin-top: 0.5rem;"></p>
+        </div>
+      `;
+    }
+
+    function initFrameOverridesState(f) {
+      // Wire up the Use Default / Custom toggle buttons for this sheet.
+      document.querySelectorAll('[data-override-toggle]').forEach(group => {
+        group.querySelectorAll('.toggle-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const key = group.dataset.overrideToggle;
+            const mode = btn.dataset.mode;
+            group.querySelectorAll('.toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
+            const body = document.querySelector(`[data-override-body="${key}"]`);
+            if (body) body.dataset.mode = mode;
+          });
+        });
+      });
+
+      // Populate current values (or global defaults as a starting point when switching to Custom).
+      const orientationSel = document.getElementById('ovr-frameOrientation');
+      if (orientationSel) orientationSel.value = f.frameOrientation || document.getElementById('frameOrientation').value || 'portrait_180';
+
+      const fitSel = document.getElementById('ovr-fitMode');
+      if (fitSel) fitSel.value = f.fitMode || document.getElementById('fitMode').value || 'matting';
+
+      const epdTextarea = document.getElementById('ovr-epdoptimizeConfig');
+      if (epdTextarea) {
+        const cfg = f.epdoptimizeConfig || window.__epdConfigDefault || {};
+        epdTextarea.value = JSON.stringify(cfg, null, 2);
+      }
+
+      const schedule = f.refreshSchedule || {
+        enabled: document.getElementById('scheduleEnabled')?.checked || false,
+        times: Array.from(document.querySelectorAll('#scheduleTimesList input[type="time"]')).map(el => el.value),
+        timezone: document.getElementById('scheduleTimezone')?.value || Intl.DateTimeFormat().resolvedOptions().timeZone
+      };
+      setScheduleEditorValue('ovr-refreshSchedule', schedule);
+    }
+
+    async function saveFrameOverrides(frameId) {
+      const payload = {};
+
+      const orientationMode = document.querySelector('[data-override-body="frameOrientation"]').dataset.mode;
+      payload.frameOrientation = orientationMode === 'custom' ? document.getElementById('ovr-frameOrientation').value : null;
+
+      const fitMode = document.querySelector('[data-override-body="fitMode"]').dataset.mode;
+      payload.fitMode = fitMode === 'custom' ? document.getElementById('ovr-fitMode').value : null;
+
+      const epdMode = document.querySelector('[data-override-body="epdoptimizeConfig"]').dataset.mode;
+      const statusEl = document.getElementById('frameOverridesStatus');
+      if (epdMode === 'custom') {
+        try {
+          payload.epdoptimizeConfig = JSON.parse(document.getElementById('ovr-epdoptimizeConfig').value);
+        } catch (err) {
+          statusEl.textContent = `Invalid epdoptimize JSON: ${err.message}`;
+          statusEl.style.color = 'var(--danger)';
+          return;
+        }
+      } else {
+        payload.epdoptimizeConfig = null;
+      }
+
+      const scheduleMode = document.querySelector('[data-override-body="refreshSchedule"]').dataset.mode;
+      payload.refreshSchedule = scheduleMode === 'custom' ? getScheduleEditorValue('ovr-refreshSchedule') : null;
+
+      const result = await apiRequest(`/api/v1/admin/frames/${encodeURIComponent(frameId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+
+      if (result.notFound) {
+        statusEl.textContent = 'The per-frame override endpoint is not available on this backend yet.';
+        statusEl.style.color = 'var(--warning)';
+        return;
+      }
+      if (result.ok) {
+        statusEl.textContent = 'Overrides saved.';
+        statusEl.style.color = 'var(--muted)';
+        await Promise.all([fetchStatus(), fetchFramesExtended()]);
+      } else {
+        statusEl.textContent = 'Failed to save overrides.';
+        statusEl.style.color = 'var(--danger)';
+      }
+    }
+
+    document.getElementById('frameDetailBody').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action="save-frame-overrides"]');
+      if (btn) saveFrameOverrides(btn.dataset.frameId);
+    });
+
+    // ---------------------------------------------------------------------
+    // Reusable schedule editor (multi-time-row + timezone dropdown), used by
+    // both the global Defaults tab (idPrefix "schedule") and any per-frame
+    // override editor (idPrefix e.g. "ovr-refreshSchedule"). Extracted so the
+    // per-frame sheet doesn't reinvent this UI.
+    // ---------------------------------------------------------------------
+    function buildScheduleEditorHtml(idPrefix) {
+      return `
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+          <input type="checkbox" id="${idPrefix}-enabled" style="width: 16px; height: 16px;" onchange="toggleScheduleFields('${idPrefix}')">
+          <label for="${idPrefix}-enabled" style="font-size: 0.82rem; font-weight: 600;">Enable scheduled daily refresh</label>
+        </div>
+        <div id="${idPrefix}-fields">
+          <div style="margin-bottom: 0.75rem;">
+            <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.3rem;">Display's Timezone</label>
+            <select id="${idPrefix}-timezone" style="width: 100%; padding: 0.5rem;"></select>
+          </div>
+          <label style="font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.3rem;">Refresh Times</label>
+          <div id="${idPrefix}-timesList" style="display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.5rem;"></div>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="addScheduleTimeRow('${idPrefix}-timesList')"><span class="mi">add</span> Add Time</button>
+        </div>
+      `;
+    }
+
+    function getScheduleTimesListId(idPrefixOrListId) {
+      // addScheduleTimeRow / renderScheduleTimes are called both with a bare
+      // list element id (legacy global-schedule call sites) and with a
+      // "<prefix>-timesList" id (reusable editor) - accept either.
+      return idPrefixOrListId.endsWith('-timesList') || idPrefixOrListId === 'scheduleTimesList'
+        ? idPrefixOrListId
+        : `${idPrefixOrListId}-timesList`;
+    }
+
+    function addScheduleTimeRow(listIdOrPrefix, value) {
+      const listId = getScheduleTimesListId(listIdOrPrefix);
+      const list = document.getElementById(listId);
+      if (!list) return;
+      const row = document.createElement('div');
+      row.style.cssText = 'display: flex; align-items: center; gap: 0.5rem;';
+      row.innerHTML = `
+        <input type="time" value="${escapeHtml(value || '07:00')}" style="padding: 0.5rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.85rem;">
+        <button type="button" class="btn btn-sm btn-danger" title="Remove this time" onclick="this.parentElement.remove()"><span class="mi">delete</span></button>
+      `;
+      list.appendChild(row);
+      const prefix = listId.replace(/-timesList$/, '').replace(/^scheduleTimesList$/, 'schedule');
+      toggleScheduleFields(prefix);
+    }
+
+    function renderScheduleTimes(listIdOrPrefix, times) {
+      const listId = getScheduleTimesListId(listIdOrPrefix);
+      const list = document.getElementById(listId);
+      if (!list) return;
+      list.innerHTML = '';
+      times.forEach(t => addScheduleTimeRow(listId, t));
+    }
+
+    function scheduleElementIds(idPrefix) {
+      // The global Defaults schedule editor kept its original flat ids
+      // (scheduleEnabled / scheduleTimezone / scheduleTimesList / scheduleFields)
+      // for backward compatibility; any other prefix uses the "<prefix>-x" scheme
+      // from buildScheduleEditorHtml().
+      if (idPrefix === 'schedule') {
+        return { enabled: 'scheduleEnabled', timezone: 'scheduleTimezone', timesList: 'scheduleTimesList', fields: 'scheduleFields' };
+      }
+      return { enabled: `${idPrefix}-enabled`, timezone: `${idPrefix}-timezone`, timesList: `${idPrefix}-timesList`, fields: `${idPrefix}-fields` };
+    }
+
+    function toggleScheduleFields(idPrefix) {
+      const ids = scheduleElementIds(idPrefix);
+      const enabledEl = document.getElementById(ids.enabled);
+      const fieldsEl = document.getElementById(ids.fields);
+      if (!enabledEl || !fieldsEl) return;
+      const enabled = enabledEl.checked;
+      fieldsEl.style.opacity = enabled ? '1' : '0.5';
+      const tzEl = document.getElementById(ids.timezone);
+      if (tzEl) tzEl.disabled = !enabled;
+      document.querySelectorAll(`#${ids.timesList} input[type="time"]`).forEach(el => el.disabled = !enabled);
+    }
+
+    function setScheduleEditorValue(idPrefix, schedule) {
+      const ids = scheduleElementIds(idPrefix);
+      const enabledEl = document.getElementById(ids.enabled);
+      if (!enabledEl) return;
+      enabledEl.checked = Boolean(schedule?.enabled);
+      const times = Array.isArray(schedule?.times) && schedule.times.length > 0 ? schedule.times : ['07:00'];
+      renderScheduleTimes(ids.timesList, times);
+      populateTimezoneSelect(ids.timezone, schedule?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+      toggleScheduleFields(idPrefix);
+    }
+
+    function getScheduleEditorValue(idPrefix) {
+      const ids = scheduleElementIds(idPrefix);
+      const times = Array.from(document.querySelectorAll(`#${ids.timesList} input[type="time"]`)).map(el => el.value).filter(Boolean);
+      return {
+        enabled: document.getElementById(ids.enabled)?.checked || false,
+        times: times.length > 0 ? times : ['07:00'],
+        timezone: document.getElementById(ids.timezone)?.value || Intl.DateTimeFormat().resolvedOptions().timeZone
+      };
+    }
+
+    function renderPhotoItem(p, sourceOptionsHtml) {
+      const orientIcon = p.orientation === 'landscape' ? '<span class="mi">desktop_windows</span> Landscape' : p.orientation === 'portrait' ? '<span class="mi">smartphone</span> Portrait' : '<span class="mi">crop_square</span> Square';
+      const dims = (p.width && p.height) ? `${p.width}×${p.height}` : 'E-Ink';
+      const thumbSrc = `/api/v1/admin/photos/${encodeURIComponent(p.id)}/thumb`;
+      // Cloud-sourced photos start as a small cached preview only - the full-resolution
+      // original and e-paper render are fetched on demand, right before the photo is
+      // actually shown (see sync-scheduler.ts#ensurePhotoDownloaded). downloaded_at is null
+      // until that happens, so badge those as "Preview" rather than implying the full photo
+      // is already sitting on disk.
+      const isPreviewOnly = p.source !== 'upload' && !p.downloaded_at;
+      const previewBadge = isPreviewOnly
+        ? '<span class="badge-orientation" style="background: rgba(0,158,227,0.12); color: var(--accent);" title="Only a small preview is cached - the full photo downloads automatically when a frame is about to show it"><span class="mi">cloud</span> Preview</span>'
+        : '';
+
+      return `
+        <div class="photo-item">
+          <img class="photo-thumb" src="${thumbSrc}" alt="${escapeHtml(p.id)}" onerror="this.style.display='none'" />
+          <div class="photo-meta">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; gap: 0.3rem; flex-wrap: wrap;">
+                <span class="badge-orientation">${orientIcon}</span>
+                ${previewBadge}
+              </div>
+              <div style="font-size: 0.75rem; color: var(--muted); margin-bottom: 0.5rem;">${dims} • Shown ${p.shown_count}x</div>
+              <select class="photo-source-select" data-photo-id="${escapeHtml(p.id)}" style="width: 100%; padding: 0.35rem; font-size: 0.75rem; margin-bottom: 0.4rem;">
+                ${sourceOptionsHtml}
+              </select>
+            </div>
+            <div style="display: flex; gap: 0.4rem; margin-top: 0.5rem;">
+              <button class="btn btn-sm btn-secondary" style="flex: 1;" data-action="queue-photo" data-photo-id="${escapeHtml(p.id)}" title="Queue to show next on frame"><span class="mi">bolt</span> Queue</button>
+              <button class="btn btn-sm btn-danger" data-action="delete-photo" data-photo-id="${escapeHtml(p.id)}" title="Delete photo"><span class="mi">delete</span></button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function fetchPhotos() {
+      try {
+        const res = await fetch('/api/v1/admin/photos', { headers: getAuthHeaders() });
+        if (!res.ok) return;
+        const photos = await res.json();
+
+        document.getElementById('galleryCount').textContent = `${photos.length} Photos`;
+        const gallery = document.getElementById('photosGallery');
+
+        if (photos.length === 0) {
+          gallery.innerHTML = '<p class="empty-state">No photos in library yet. Add an album source or upload a photo above!</p>';
+          return;
+        }
+
+        const sources = window.__albumSources || [];
+        const sourceOptionsHtml = '<option value="">Unassigned</option>' +
+          sources.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join('');
+
+        // Group by album source rather than dumping every photo into one flat grid, so a
+        // library spanning several albums stays navigable.
+        const bySource = new Map(); // sourceId|'' -> photos[]
+        for (const p of photos) {
+          const key = p.album_source_id || '';
+          if (!bySource.has(key)) bySource.set(key, []);
+          bySource.get(key).push(p);
+        }
+
+        const groupsHtml = [];
+        for (const s of sources) {
+          const groupPhotos = bySource.get(s.id);
+          if (!groupPhotos || groupPhotos.length === 0) continue;
+          groupsHtml.push(`
+            <div class="photo-group">
+              <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem; margin: 1.25rem 0 0.6rem;">
+                <span class="mi">${albumSourceIcon(s.type)}</span> ${escapeHtml(s.name)}
+                <span style="font-weight: 400; color: var(--muted); font-size: 0.8rem;">(${groupPhotos.length})</span>
+              </h3>
+              <div class="photo-grid">${groupPhotos.map(p => renderPhotoItem(p, sourceOptionsHtml)).join('')}</div>
+            </div>
+          `);
+        }
+        const unassigned = bySource.get('') || [];
+        if (unassigned.length > 0) {
+          groupsHtml.push(`
+            <div class="photo-group">
+              <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem; margin: 1.25rem 0 0.6rem;">
+                <span class="mi">folder_off</span> Unassigned
+                <span style="font-weight: 400; color: var(--muted); font-size: 0.8rem;">(${unassigned.length})</span>
+              </h3>
+              <div class="photo-grid">${unassigned.map(p => renderPhotoItem(p, sourceOptionsHtml)).join('')}</div>
+            </div>
+          `);
+        }
+
+        gallery.innerHTML = groupsHtml.join('');
+
+        // Set select values after innerHTML assignment (safer than baking `selected` into
+        // the string when option values come from escapeHtml'd IDs).
+        photos.forEach(p => {
+          const sel = gallery.querySelector(`.photo-source-select[data-photo-id="${CSS.escape(p.id)}"]`);
+          if (sel) sel.value = p.album_source_id || '';
+        });
+      } catch (err) {
+        console.error('Fetch photos error:', err);
+      }
+    }
+
+    async function queuePhoto(photoId) {
+      const res = await fetch(`/api/v1/admin/queue/${encodeURIComponent(photoId)}`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        alert(`Photo queued with high priority for the next frame refresh!`);
+        fetchStatus();
+      } else {
+        alert('Failed to queue photo');
+      }
+    }
+
+    async function deletePhoto(photoId) {
+      if (!confirm('Remove this photo from the library?')) return;
+      const res = await fetch(`/api/v1/admin/photos/${encodeURIComponent(photoId)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        fetchPhotos();
+        fetchStatus();
+      } else {
+        alert('Failed to delete photo');
+      }
+    }
+
+    document.getElementById('photosGallery').addEventListener('click', (e) => {
+      const queueBtn = e.target.closest('[data-action="queue-photo"]');
+      if (queueBtn) { queuePhoto(queueBtn.dataset.photoId); return; }
+      const deleteBtn = e.target.closest('[data-action="delete-photo"]');
+      if (deleteBtn) deletePhoto(deleteBtn.dataset.photoId);
+    });
+
+    document.getElementById('photosGallery').addEventListener('change', (e) => {
+      const sel = e.target.closest('.photo-source-select');
+      if (sel) reassignPhotoSource(sel.dataset.photoId, sel.value || null);
+    });
+
+    async function reassignPhotoSource(photoId, albumSourceId) {
+      const res = await fetch(`/api/v1/admin/photos/${encodeURIComponent(photoId)}`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ albumSourceId })
+      });
+      if (!res.ok) {
+        alert('Failed to reassign photo.');
+        fetchPhotos();
+      }
+    }
+
+    async function triggerSync() {
+      await fetch('/api/v1/admin/sync', {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      alert('Sync initiated in background!');
+      setTimeout(() => { fetchStatus(); fetchPhotos(); }, 3000);
+    }
+
+    async function uploadPhoto(file) {
+      if (!file) return;
+      const headers = {};
+      headers['Content-Type'] = file.type;
+
+      const albumSourceId = document.getElementById('uploadTargetSource')?.value || '';
+      const url = '/api/v1/admin/upload' + (albumSourceId ? `?albumSourceId=${encodeURIComponent(albumSourceId)}` : '');
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: file
+      });
+      if (res.ok) {
+        alert('Photo uploaded and processed successfully!');
+        fetchStatus();
+        fetchPhotos();
+      } else {
+        alert('Upload failed');
+      }
+    }
+
+    async function fetchSettings() {
+      try {
+        const res = await fetch('/api/v1/admin/settings', {
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Orientation & Display Settings
+        if (data.frameOrientation) {
+          document.getElementById('frameOrientation').value = data.frameOrientation;
+        }
+        if (data.fitMode) {
+          document.getElementById('fitMode').value = data.fitMode;
+        }
+        if (data.epdoptimizeConfig) {
+          document.getElementById('epdConfigJson').value = JSON.stringify(data.epdoptimizeConfig, null, 2);
+        }
+        if (data.epdoptimizeConfigDefault) {
+          window.__epdConfigDefault = data.epdoptimizeConfigDefault;
+        }
+
+        // Scheduled Refresh
+        if (data.refreshSchedule) {
+          document.getElementById('scheduleEnabled').checked = Boolean(data.refreshSchedule.enabled);
+          const times = Array.isArray(data.refreshSchedule.times) && data.refreshSchedule.times.length > 0
+            ? data.refreshSchedule.times
+            : (data.refreshSchedule.time ? [data.refreshSchedule.time] : ['07:00']);
+          renderScheduleTimes('scheduleTimesList', times);
+          populateTimezoneSelect('scheduleTimezone', data.refreshSchedule.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
+          toggleScheduleFields('schedule');
+        }
+
+        // Google Photos
+        if (data.googlePhotos) {
+          document.getElementById('gpShareUrl').value = data.googlePhotos.shareUrl || '';
+          document.getElementById('gpClientId').value = data.googlePhotos.clientId || '';
+          document.getElementById('gpClientSecret').value = data.googlePhotos.clientSecret || '';
+          document.getElementById('gpRefreshToken').value = data.googlePhotos.refreshToken || '';
+          document.getElementById('gpAlbumId').value = data.googlePhotos.albumId || '';
+          const gpBadge = document.getElementById('gphotosBadge');
+          if (data.googlePhotos.enabled) {
+            gpBadge.innerHTML = '<span class="mi">check_circle</span> Configured';
+            gpBadge.className = 'status-badge badge-active';
+          } else {
+            gpBadge.innerHTML = '<span class="mi">radio_button_unchecked</span> Incomplete';
+            gpBadge.className = 'status-badge badge-storage';
+          }
+        }
+
+        // Immich
+        if (data.immich) {
+          document.getElementById('immichHost').value = data.immich.host || '';
+          document.getElementById('immichApiKey').value = data.immich.apiKey || '';
+          document.getElementById('immichAlbumId').value = data.immich.albumId || '';
+          const imBadge = document.getElementById('immichBadge');
+          if (data.immich.enabled) {
+            imBadge.innerHTML = '<span class="mi">check_circle</span> Configured';
+            imBadge.className = 'status-badge badge-active';
+          } else {
+            imBadge.innerHTML = '<span class="mi">radio_button_unchecked</span> Incomplete';
+            imBadge.className = 'status-badge badge-storage';
+          }
+        }
+
+        // iCloud
+        if (data.icloud) {
+          document.getElementById('icloudToken').value = data.icloud.token || '';
+          const icBadge = document.getElementById('icloudBadge');
+          if (data.icloud.enabled) {
+            icBadge.innerHTML = '<span class="mi">check_circle</span> Configured';
+            icBadge.className = 'status-badge badge-active';
+          } else {
+            icBadge.innerHTML = '<span class="mi">radio_button_unchecked</span> Incomplete';
+            icBadge.className = 'status-badge badge-storage';
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch settings:', err);
+      }
+    }
+
+    // A curated list of common IANA timezones, grouped by region. Deliberately NOT using
+    // Intl.supportedValuesOf('timeZone') here - it's unsupported in Safari and older
+    // Firefox (throws / is undefined there), which silently collapsed the dropdown to
+    // 1-2 entries in those browsers. A static list works identically everywhere and is
+    // far easier to actually pick from than the full ~400-entry IANA database anyway.
+    const COMMON_TIMEZONES = [
+      ['UTC', 'UTC'],
+      ['America/New_York', 'New York (US Eastern)'],
+      ['America/Chicago', 'Chicago (US Central)'],
+      ['America/Denver', 'Denver (US Mountain)'],
+      ['America/Los_Angeles', 'Los Angeles (US Pacific)'],
+      ['America/Anchorage', 'Anchorage (US Alaska)'],
+      ['Pacific/Honolulu', 'Honolulu (US Hawaii)'],
+      ['America/Toronto', 'Toronto (Canada)'],
+      ['America/Vancouver', 'Vancouver (Canada)'],
+      ['America/Mexico_City', 'Mexico City'],
+      ['America/Bogota', 'Bogotá'],
+      ['America/Lima', 'Lima'],
+      ['America/Santiago', 'Santiago'],
+      ['America/Sao_Paulo', 'São Paulo'],
+      ['America/Argentina/Buenos_Aires', 'Buenos Aires'],
+      ['Europe/London', 'London'],
+      ['Europe/Dublin', 'Dublin'],
+      ['Europe/Lisbon', 'Lisbon'],
+      ['Europe/Madrid', 'Madrid'],
+      ['Europe/Paris', 'Paris'],
+      ['Europe/Berlin', 'Berlin'],
+      ['Europe/Rome', 'Rome'],
+      ['Europe/Amsterdam', 'Amsterdam'],
+      ['Europe/Zurich', 'Zurich'],
+      ['Europe/Vienna', 'Vienna'],
+      ['Europe/Warsaw', 'Warsaw'],
+      ['Europe/Athens', 'Athens'],
+      ['Europe/Istanbul', 'Istanbul'],
+      ['Europe/Moscow', 'Moscow'],
+      ['Africa/Cairo', 'Cairo'],
+      ['Africa/Lagos', 'Lagos'],
+      ['Africa/Johannesburg', 'Johannesburg'],
+      ['Africa/Nairobi', 'Nairobi'],
+      ['Asia/Jerusalem', 'Jerusalem'],
+      ['Asia/Dubai', 'Dubai'],
+      ['Asia/Karachi', 'Karachi'],
+      ['Asia/Kolkata', 'India (Kolkata/Mumbai/Delhi)'],
+      ['Asia/Dhaka', 'Dhaka'],
+      ['Asia/Bangkok', 'Bangkok'],
+      ['Asia/Jakarta', 'Jakarta'],
+      ['Asia/Shanghai', 'China (Shanghai/Beijing)'],
+      ['Asia/Hong_Kong', 'Hong Kong'],
+      ['Asia/Singapore', 'Singapore'],
+      ['Asia/Tokyo', 'Tokyo'],
+      ['Asia/Seoul', 'Seoul'],
+      ['Australia/Perth', 'Perth (Australia West)'],
+      ['Australia/Adelaide', 'Adelaide (Australia Central)'],
+      ['Australia/Sydney', 'Sydney (Australia East)'],
+      ['Pacific/Auckland', 'Auckland (New Zealand)']
+    ];
+
+    function populateTimezoneSelect(selectId, selectedTimezone) {
+      const select = document.getElementById(selectId);
+      if (!select) return;
+      if (select.dataset.populated) {
+        select.value = selectedTimezone;
+        return;
+      }
+
+      const zones = COMMON_TIMEZONES.slice();
+      if (!zones.some(([tz]) => tz === selectedTimezone)) {
+        // Selected timezone isn't in the curated list (e.g. a less common zone saved
+        // previously) - add it explicitly so it's never silently dropped from the form.
+        zones.unshift([selectedTimezone, selectedTimezone]);
+      }
+
+      select.innerHTML = zones.map(([tz, label]) => `<option value="${escapeHtml(tz)}">${escapeHtml(label)}</option>`).join('');
+      select.dataset.populated = '1';
+      select.value = selectedTimezone;
+    }
+
+    async function saveRefreshSchedule() {
+      const payload = { refreshSchedule: getScheduleEditorValue('schedule') };
+      const statusEl = document.getElementById('scheduleStatus');
+      try {
+        const res = await fetch('/api/v1/admin/settings', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          statusEl.textContent = 'Schedule saved.';
+          statusEl.style.color = 'var(--muted)';
+          fetchStatus();
+        } else {
+          statusEl.textContent = `${data.error || 'Failed to save schedule.'}`;
+          statusEl.style.color = 'var(--danger, #e55)';
+        }
+      } catch (err) {
+        statusEl.textContent = `${err.message}`;
+        statusEl.style.color = 'var(--danger, #e55)';
+      }
+    }
+
+    async function saveDisplaySettings() {
+      const payload = {
+        frameOrientation: document.getElementById('frameOrientation').value,
+        fitMode: document.getElementById('fitMode').value
+      };
+      const res = await fetch('/api/v1/admin/settings', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('Display and orientation settings saved successfully!');
+        fetchSettings();
+      } else {
+        alert('Failed to save display settings.');
+      }
+    }
+
+    function resetEpdConfigToDefault() {
+      const fallback = {
+        palette: "aitjcizeSpectra6Palette",
+        imageAdjustmentOptions: {
+          dynamicRangeCompression: { mode: "display", strength: 0.7, lowPercentile: 0.01, highPercentile: 0.99 }
+        },
+        canvasDitherOptions: {
+          serpentine: true,
+          edgePreservation: { enabled: true, strength: 0.65 }
+        }
+      };
+      const defaults = window.__epdConfigDefault || fallback;
+      document.getElementById('epdConfigJson').value = JSON.stringify(defaults, null, 2);
+      document.getElementById('epdConfigStatus').textContent = '';
+    }
+
+    async function saveEpdConfig() {
+      const statusEl = document.getElementById('epdConfigStatus');
+      const raw = document.getElementById('epdConfigJson').value;
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        statusEl.textContent = `Invalid JSON: ${err.message}`;
+        statusEl.style.color = 'var(--danger, #e55)';
+        return;
+      }
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        statusEl.textContent = 'Configuration must be a JSON object.';
+        statusEl.style.color = 'var(--danger, #e55)';
+        return;
+      }
+
+      if (!confirm('Save this epdoptimize configuration and reprocess the entire photo library with it?')) return;
+
+      try {
+        const res = await fetch('/api/v1/admin/settings', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ epdoptimizeConfig: parsed })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = `${data.error || 'Failed to save configuration.'}`;
+          statusEl.style.color = 'var(--danger, #e55)';
+          return;
+        }
+
+        statusEl.textContent = 'Saved. Reprocessing library...';
+        statusEl.style.color = 'var(--muted)';
+
+        const reprocessRes = await fetch('/api/v1/admin/reprocess', {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+        const reprocessData = await reprocessRes.json();
+        if (reprocessRes.ok) {
+          statusEl.textContent = `Configuration saved and library reprocessed (${reprocessData.count} photos updated).`;
+          fetchPhotos();
+        } else {
+          statusEl.textContent = `Configuration saved, but reprocessing failed: ${reprocessData.error || 'unknown error'}`;
+        }
+      } catch (err) {
+        statusEl.textContent = `${err.message}`;
+        statusEl.style.color = 'var(--danger, #e55)';
+      }
+    }
+
+    async function reprocessAllPhotos() {
+      if (!confirm('Reprocess all photos in library with the current orientation & matting settings? This will update all cached E-Ink binaries.')) return;
+      try {
+        const res = await fetch('/api/v1/admin/reprocess', {
+          method: 'POST',
+          headers: getAuthHeaders()
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`Reprocessing complete! Successfully updated ${data.count} photos.`);
+          fetchPhotos();
+        } else {
+          alert(`Reprocess error: ${data.error}`);
+        }
+      } catch (err) {
+        alert('Reprocess failed: ' + err.message);
+      }
+    }
+
+    async function saveGooglePhotos() {
+      const payload = {
+        googlePhotos: {
+          shareUrl: document.getElementById('gpShareUrl').value.trim(),
+          clientId: document.getElementById('gpClientId').value.trim(),
+          clientSecret: document.getElementById('gpClientSecret').value.trim(),
+          refreshToken: document.getElementById('gpRefreshToken').value.trim(),
+          albumId: document.getElementById('gpAlbumId').value.trim()
+        }
+      };
+      const res = await fetch('/api/v1/admin/settings', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('Google Photos settings saved!');
+        fetchSettings();
+      } else {
+        alert('Failed to save Google Photos settings.');
+      }
+    }
+
+    async function saveImmich() {
+      const payload = {
+        immich: {
+          host: document.getElementById('immichHost').value,
+          apiKey: document.getElementById('immichApiKey').value,
+          albumId: document.getElementById('immichAlbumId').value
+        }
+      };
+      const res = await fetch('/api/v1/admin/settings', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('Immich settings saved!');
+        fetchSettings();
+      } else {
+        alert('Failed to save Immich settings.');
+      }
+    }
+
+    async function saveIcloud() {
+      let rawToken = document.getElementById('icloudToken').value.trim();
+      if (rawToken.includes('#')) {
+        rawToken = rawToken.split('#')[1];
+      }
+      const payload = {
+        icloud: {
+          token: rawToken
+        }
+      };
+      const res = await fetch('/api/v1/admin/settings', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        alert('iCloud settings saved!');
+        fetchSettings();
+      } else {
+        alert('Failed to save iCloud settings.');
+      }
+    }
+
+    async function testAlbum(source) {
+      try {
+        const res = await fetch('/api/v1/admin/test-album', {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ source })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          alert(`Connection successful! Found ${data.count} photos in album.`);
+        } else {
+          alert(`Connection test failed:\n${data.error || 'Check credentials'}`);
+        }
+      } catch (err) {
+        alert(`Network error testing album: ${err.message}`);
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // Album Sources tab
+    // ---------------------------------------------------------------------
+    async function fetchAlbumSources() {
+      const grid = document.getElementById('albumSourcesGrid');
+      const result = await apiRequest('/api/v1/admin/album-sources');
+
+      if (result.notFound) {
+        window.__albumSources = [];
+        grid.innerHTML = '<p class="empty-state">Album Sources aren\'t available on this backend yet. Once the backend adds support, sources you create here will show up automatically.</p>';
+        return;
+      }
+      if (!result.ok) {
+        window.__albumSources = [];
+        grid.innerHTML = '<p class="empty-state">Could not load album sources.</p>';
+        return;
+      }
+
+      // Contract says the key is `sources`; the live backend actually sends
+      // `albumSources` - accept either so this works with both.
+      window.__albumSources = result.data?.sources || result.data?.albumSources || [];
+      renderAlbumSources();
+      renderUploadTargetOptions();
+    }
+
+    // Populates the "assign to source" dropdown used by both the top-level upload
+    // widget and each photo's reassignment control in the Library tab.
+    function renderUploadTargetOptions() {
+      const sources = window.__albumSources || [];
+      const optionsHtml = '<option value="">Unassigned (whole library)</option>' +
+        sources.map(s => `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`).join('');
+
+      const uploadSelect = document.getElementById('uploadTargetSource');
+      if (uploadSelect) {
+        const prev = uploadSelect.value;
+        uploadSelect.innerHTML = optionsHtml;
+        if (sources.some(s => s.id === prev)) uploadSelect.value = prev;
+      }
+    }
+
+    function renderAlbumSources() {
+      const grid = document.getElementById('albumSourcesGrid');
+      const sources = window.__albumSources || [];
+
+      if (sources.length === 0) {
+        grid.innerHTML = '<p class="empty-state">No album sources yet. Click "Add Source" to create one.</p>';
+        return;
+      }
+
+      const typeLabels = { google_photos: 'Google Photos', immich: 'Immich Self-Hosted', icloud: 'Apple iCloud', manual: 'Manual Upload' };
+
+      grid.innerHTML = sources.map(s => `
+        <div class="entity-card">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+            <div>
+              <h3 style="font-size: 1.05rem; display: flex; align-items: center; gap: 0.4rem;">
+                <span class="mi">${albumSourceIcon(s.type)}</span> ${escapeHtml(s.name)}
+              </h3>
+              <span style="font-size: 0.78rem; color: var(--muted);">${escapeHtml(typeLabels[s.type] || s.type)}</span>
+            </div>
+            <span class="status-badge ${s.enabled ? 'badge-active' : 'badge-storage'}">${s.enabled ? 'Enabled' : 'Disabled'}</span>
+          </div>
+          <div class="actions" style="margin-top: 0.25rem;">
+            <button class="btn btn-sm btn-secondary" data-action="edit-album-source" data-id="${escapeHtml(s.id)}"><span class="mi">edit</span> Edit</button>
+            <button class="btn btn-sm ${s.enabled ? 'btn-secondary' : ''}" data-action="toggle-album-source" data-id="${escapeHtml(s.id)}">
+              <span class="mi">${s.enabled ? 'toggle_off' : 'toggle_on'}</span> ${s.enabled ? 'Disable' : 'Enable'}
+            </button>
+            <button class="btn btn-sm btn-danger" data-action="delete-album-source" data-id="${escapeHtml(s.id)}"><span class="mi">delete</span></button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('albumSourcesGrid').addEventListener('click', (e) => {
+      const editBtn = e.target.closest('[data-action="edit-album-source"]');
+      if (editBtn) { openAlbumSourceForm(editBtn.dataset.id); return; }
+      const toggleBtn = e.target.closest('[data-action="toggle-album-source"]');
+      if (toggleBtn) { toggleAlbumSourceEnabled(toggleBtn.dataset.id); return; }
+      const deleteBtn = e.target.closest('[data-action="delete-album-source"]');
+      if (deleteBtn) deleteAlbumSource(deleteBtn.dataset.id);
+    });
+
+    document.querySelector('[data-action="add-album-source"]').addEventListener('click', () => openAlbumSourceForm(null));
+
+    function onAlbumSourceTypeChange() {
+      const type = document.getElementById('asType').value;
+      document.querySelectorAll('.as-type-fields').forEach(el => {
+        el.style.display = el.id === `asFields-${type}` ? '' : 'none';
+      });
+    }
+
+    function openAlbumSourceForm(sourceId) {
+      document.getElementById('albumSourceFormStatus').textContent = '';
+      const source = sourceId ? (window.__albumSources || []).find(s => s.id === sourceId) : null;
+
+      document.getElementById('albumSourceFormTitle').textContent = source ? `Edit "${source.name}"` : 'Add Album Source';
+      document.getElementById('albumSourceOverlay').dataset.editingId = sourceId || '';
+
+      document.getElementById('asName').value = source?.name || '';
+      document.getElementById('asType').value = source?.type || 'google_photos';
+      document.getElementById('asEnabled').checked = source ? Boolean(source.enabled) : true;
+      onAlbumSourceTypeChange();
+
+      const cfg = source?.config || {};
+      document.getElementById('asGpShareUrl').value = cfg.shareUrl || '';
+      document.getElementById('asGpClientId').value = cfg.clientId || '';
+      document.getElementById('asGpClientSecret').value = cfg.clientSecret || '';
+      document.getElementById('asGpRefreshToken').value = cfg.refreshToken || '';
+      document.getElementById('asGpAlbumId').value = cfg.albumId || '';
+      document.getElementById('asImmichHost').value = cfg.host || '';
+      document.getElementById('asImmichApiKey').value = cfg.apiKey || '';
+      document.getElementById('asImmichAlbumId').value = cfg.albumId || '';
+      document.getElementById('asIcloudToken').value = cfg.token || '';
+
+      document.getElementById('albumSourceOverlay').classList.add('open');
+    }
+
+    function closeAlbumSourceForm() {
+      document.getElementById('albumSourceOverlay').classList.remove('open');
+    }
+
+    function collectAlbumSourceConfig(type) {
+      if (type === 'google_photos') {
+        return {
+          shareUrl: document.getElementById('asGpShareUrl').value.trim(),
+          clientId: document.getElementById('asGpClientId').value.trim(),
+          clientSecret: document.getElementById('asGpClientSecret').value.trim(),
+          refreshToken: document.getElementById('asGpRefreshToken').value.trim(),
+          albumId: document.getElementById('asGpAlbumId').value.trim()
+        };
+      }
+      if (type === 'immich') {
+        return {
+          host: document.getElementById('asImmichHost').value.trim(),
+          apiKey: document.getElementById('asImmichApiKey').value.trim(),
+          albumId: document.getElementById('asImmichAlbumId').value.trim()
+        };
+      }
+      if (type === 'icloud') {
+        let token = document.getElementById('asIcloudToken').value.trim();
+        if (token.includes('#')) token = token.split('#')[1];
+        return { token };
+      }
+      // manual - no configuration
+      return {};
+    }
+
+    async function saveAlbumSource() {
+      const statusEl = document.getElementById('albumSourceFormStatus');
+      const name = document.getElementById('asName').value.trim();
+      if (!name) {
+        statusEl.textContent = 'Please enter a name for this source.';
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+      const type = document.getElementById('asType').value;
+      const enabled = document.getElementById('asEnabled').checked;
+      const config = collectAlbumSourceConfig(type);
+
+      const editingId = document.getElementById('albumSourceOverlay').dataset.editingId;
+      const isEdit = Boolean(editingId);
+
+      const result = await apiRequest(
+        isEdit ? `/api/v1/admin/album-sources/${encodeURIComponent(editingId)}` : '/api/v1/admin/album-sources',
+        {
+          method: isEdit ? 'PATCH' : 'POST',
+          body: JSON.stringify(isEdit ? { name, config, enabled } : { name, type, config, enabled })
+        }
+      );
+
+      if (result.notFound) {
+        statusEl.textContent = 'Album Sources aren\'t available on this backend yet - this UI is ready for when they land.';
+        statusEl.style.color = 'var(--warning)';
+        return;
+      }
+      if (result.ok) {
+        closeAlbumSourceForm();
+        fetchAlbumSources();
+      } else {
+        statusEl.textContent = 'Failed to save album source.';
+        statusEl.style.color = 'var(--danger)';
+      }
+    }
+
+    async function toggleAlbumSourceEnabled(sourceId) {
+      const source = (window.__albumSources || []).find(s => s.id === sourceId);
+      if (!source) return;
+      const result = await apiRequest(`/api/v1/admin/album-sources/${encodeURIComponent(sourceId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ enabled: !source.enabled })
+      });
+      if (result.ok || result.notFound) fetchAlbumSources();
+    }
+
+    async function deleteAlbumSource(sourceId) {
+      const source = (window.__albumSources || []).find(s => s.id === sourceId);
+      const name = source?.name || sourceId;
+      if (!confirm(`Delete album source "${name}"? It will be unassigned from any frames using it (their photos are not deleted).`)) return;
+
+      const result = await apiRequest(`/api/v1/admin/album-sources/${encodeURIComponent(sourceId)}`, {
+        method: 'DELETE'
+      });
+      if (result.notFound) {
+        alert('Album Sources aren\'t available on this backend yet.');
+        return;
+      }
+      if (result.ok) {
+        fetchAlbumSources();
+        fetchFramesExtended();
+      } else {
+        alert('Failed to delete album source.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      fetchStatus();
+      fetchSettings();
+      fetchFramesExtended();
+      // Album sources must be loaded before the library gallery renders, so each photo's
+      // "assign to source" dropdown has real options instead of just "Unassigned" until
+      // the next unrelated re-render.
+      await fetchAlbumSources();
+      fetchPhotos();
+      setInterval(fetchStatus, 15000);
+    });
+  </script>
+</body>
+</html>

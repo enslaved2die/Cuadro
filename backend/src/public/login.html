@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cuadro - Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gabarito:wght@600;700;800&family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --card: #f7f8fa;
+      --input-bg: #f1f3f8;
+      --border: #e2e8f0;
+      --text: #242c48;
+      --muted: #6b7280;
+      --accent: #009ee3;
+      --accent-hover: #0086c3;
+      --danger: #dc2626;
+      --success: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .mi { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; font-size: 1.2em; line-height: 1; vertical-align: -0.2em; display: inline-block; white-space: nowrap; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    .login-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 40px -12px rgba(36, 44, 72, 0.12);
+    }
+    .brand {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .brand h1 {
+      font-family: 'Gabarito', 'Urbanist', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .brand p {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+    input[type="password"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .btn {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: var(--accent-hover);
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .alert {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.25rem;
+      font-size: 0.85rem;
+      display: none;
+      line-height: 1.4;
+    }
+    .alert-danger {
+      background: rgba(220, 38, 38, 0.08);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+    }
+    .footer {
+      margin-top: 1.75rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="brand">
+      <h1><span class="mi">image</span> Cuadro</h1>
+      <p>Enter administrator password to continue</p>
+    </div>
+
+    <div id="errorAlert" class="alert alert-danger"></div>
+
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label for="password">Admin Password</label>
+        <input type="password" id="password" placeholder="Enter password" autofocus required autocomplete="current-password" />
+      </div>
+      <button type="submit" id="submitBtn" class="btn">Sign In</button>
+    </form>
+
+    <div class="footer">
+      <span class="mi">lock</span> Protected with rate limiting & session security
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const redirectUrl = params.get('redirect') || '/';
+
+    // Auto-check if already authenticated
+    fetch('/api/v1/auth/check')
+      .then(r => {
+        if (r.ok) {
+          window.location.href = redirectUrl;
+        }
+      })
+      .catch(() => {});
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const passInput = document.getElementById('password');
+      const submitBtn = document.getElementById('submitBtn');
+      const errorAlert = document.getElementById('errorAlert');
+
+      const password = passInput.value;
+      if (!password) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verifying...';
+      errorAlert.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          // Session is tracked via the HttpOnly cookie set by the server; nothing to store client-side.
+          window.location.href = redirectUrl;
+        } else {
+          errorAlert.textContent = data.error || 'Authentication failed.';
+          errorAlert.style.display = 'block';
+          passInput.focus();
+          passInput.select();
+        }
+      } catch (err) {
+        errorAlert.textContent = 'Connection error. Please try again.';
+        errorAlert.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign In';
+      }
+    }
+  </script>
+</body>
+</html>

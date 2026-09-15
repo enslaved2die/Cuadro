@@ -1,0 +1,27 @@
+{
+  "name": "memories-frame-backend",
+  "version": "1.0.0",
+  "description": "IoT Remote E-Paper Photo Frame Backend for Good Display Spectra 6 (GDEB0709E01)",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "epdoptimize": "^1.1.2",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.5",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}

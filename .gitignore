@@ -1,0 +1,23 @@
+# Node
+node_modules/
+dist/
+npm-debug.log*
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+firmware/.venv/
+firmware/backups/
+
+# Application Data & Cache
+data/
+backend/data/
+.env
+
+# Scratch / throwaway test files
+scratch/
+
+# OS
+.DS_Store
+Thumbs.db

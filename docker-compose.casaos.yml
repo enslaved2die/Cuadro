@@ -1,0 +1,100 @@
+name: memories-frame-backend
+services:
+  memories-backend:
+    image: memories-frame-backend:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: memories-frame-backend
+    restart: unless-stopped
+    ports:
+      - "7890:8080"
+    environment:
+      - PORT=8080
+      - DATA_DIR=/data
+      - FRAME_TOKEN=memories-frame-secure-token-12345
+      - ADMIN_PASSWORD=
+      - DEFAULT_SLEEP_SECONDS=14400
+      - WATCHDOG_HOURS=24
+      - IDLE_SHUFFLE_HOURS=24
+      - IMMICH_HOST=
+      - IMMICH_API_KEY=
+      - IMMICH_ALBUM_ID=
+      - GOOGLE_PHOTOS_SHARE_URL=
+      - GOOGLE_PHOTOS_CLIENT_ID=
+      - GOOGLE_PHOTOS_CLIENT_SECRET=
+      - GOOGLE_PHOTOS_REFRESH_TOKEN=
+      - GOOGLE_PHOTOS_ALBUM_ID=
+      - ICLOUD_SHARED_ALBUM_TOKEN=
+    volumes:
+      - /DATA/AppData/memories-frame/data:/data
+      - /DATA/AppData/memories-frame/backend/src/public:/app/src/public
+      - /DATA/AppData/memories-frame/backend/dist:/app/dist
+    x-casaos:
+      envs:
+        - container: FRAME_TOKEN
+          description:
+            en_us: "Bearer token that your e-paper frame uses to authenticate"
+        - container: ADMIN_PASSWORD
+          description:
+            en_us: "Password for the Admin Web UI. Leave blank to auto-generate a secure one-time password, which is printed to the container logs on first startup."
+        - container: GOOGLE_PHOTOS_SHARE_URL
+          description:
+            en_us: "Public Google Photos shared album URL (e.g. https://photos.app.goo.gl/...)"
+        - container: GOOGLE_PHOTOS_CLIENT_ID
+          description:
+            en_us: "Google Photos OAuth 2.0 Client ID"
+        - container: GOOGLE_PHOTOS_CLIENT_SECRET
+          description:
+            en_us: "Google Photos OAuth 2.0 Client Secret"
+        - container: GOOGLE_PHOTOS_REFRESH_TOKEN
+          description:
+            en_us: "Google Photos OAuth Refresh Token"
+        - container: GOOGLE_PHOTOS_ALBUM_ID
+          description:
+            en_us: "Google Photos Album ID to pull pictures from"
+        - container: IMMICH_HOST
+          description:
+            en_us: "Immich server base URL (e.g. http://192.168.1.50:2283)"
+        - container: IMMICH_API_KEY
+          description:
+            en_us: "Immich API Key"
+        - container: IMMICH_ALBUM_ID
+          description:
+            en_us: "Immich Album UUID"
+        - container: ICLOUD_SHARED_ALBUM_TOKEN
+          description:
+            en_us: "Apple iCloud shared album public token"
+        - container: DEFAULT_SLEEP_SECONDS
+          description:
+            en_us: "Sleep interval between frame refreshes in seconds (14400 = 4h)"
+        - container: WATCHDOG_HOURS
+          description:
+            en_us: "Maximum hours before forced refresh to prevent pigment sticking (default: 24)"
+        - container: IDLE_SHUFFLE_HOURS
+          description:
+            en_us: "Shuffle interval for existing photos in library (default: 24)"
+      volumes:
+        - container: /data
+          description:
+            en_us: "Persistent directory for SQLite database, original photos, and 960 KB binaries"
+
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+    - arm
+  main: memories-backend
+  author: Joshua
+  category: Media
+  description:
+    en_us: "IoT Remote E-Paper Photo Frame Backend for Good Display 7.09 inch Spectra 6 (GDEB0709E01). Syncs albums from Immich, Google Photos, or iCloud, applies CIELAB tone mapping and Atkinson dithering, and serves 960 KB binary payloads to remote frames."
+  developer: Joshua
+  icon: https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/png/immich.png
+  tagline:
+    en_us: "Connected E-Paper Picture Frame Server"
+  title:
+    en_us: "Cuadro"
+  index: /
+  port_map: "7890"
+  scheme: http

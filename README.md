@@ -17,6 +17,20 @@ The frame sits behind residential NAT/firewalls, pulling updates from a self-hos
 
 ---
 
+## Screenshots
+
+*Dashboard populated with sample data — sample photos via [Unsplash](https://unsplash.com/).*
+
+| Connected Frames | Album Sources |
+| :---: | :---: |
+| ![Connected frames, each showing its current photo and what's up next](docs/screenshots/dashboard-frames.png) | ![Album Sources tab listing reusable connections to Google Photos, Immich, or iCloud](docs/screenshots/dashboard-album-sources.png) |
+
+| Photo Library (grouped by album) | Frame Detail Sheet |
+| :---: | :---: |
+| ![Photo library grouped by album source](docs/screenshots/dashboard-library.png) | ![Per-frame detail sheet with rename, status, and currently displayed image](docs/screenshots/dashboard-frame-detail.png) |
+
+---
+
 ## Hardware Specification & Verified Pinout
 
 - **Display Module:** Good Display 7.09" E Ink Spectra™ 6 (`GDEB0709E01`)

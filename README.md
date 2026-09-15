@@ -77,7 +77,7 @@ The frame sits behind residential NAT/firewalls, pulling updates from a self-hos
                                           |  2. Wi-Fi / Fallback Captive Portal         |
                                           |  3. Direct Stream Chunking (Zero Big Buffer)|
                                           |  4. Dual-IC Display Refresh (GDEB0709E01)   |
-                                          |  5. POF + Pin Isolation + Deep Sleep        |
+                                          |  5. POF + Light Sleep (state kept intact)   |
                                           +---------------------------------------------+
 ```
 

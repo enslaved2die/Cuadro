@@ -117,4 +117,20 @@ The firmware is located in `/firmware` and built with **PlatformIO**.
   1. The frame broadcasts a Wi-Fi hotspot named: `Cuadro-Setup`.
   2. Connect using your phone or laptop. A captive portal page will appear automatically at `http://192.168.4.1`.
   3. Enter your home Wi-Fi SSID, password, backend server URL (e.g. `https://memories.yourdomain.com`), and `FRAME_TOKEN`.
-  4. Click **Save & Connect**. The frame reboots, connects to your Wi-Fi, fetches the first image, refreshes the display, and deep sleeps!
+  4. Click **Save & Connect**. The frame reboots, connects to your Wi-Fi, fetches the first image, refreshes the display, and light-sleeps until the next scheduled refresh!
+
+---
+
+## Acknowledgements
+
+Cuadro is built on top of some excellent open-source work:
+
+- **[epdoptimize](https://paperlesspaper.github.io/epdoptimize/)** by [paperlesspaper](https://github.com/paperlesspaper) — the color-matching, dynamic range compression, and dithering engine that turns full-color photos into something a 6-color e-paper panel can actually reproduce well. Its web tool is also what generates the JSON config the dashboard's epdoptimize settings accept.
+- **[sharp](https://github.com/lovell/sharp)** — fast, libvips-based image decoding, resizing, and format conversion used throughout the processing pipeline.
+- **[Express](https://expressjs.com/)** — the backend's HTTP server and routing.
+- **[node-cron](https://github.com/node-cron/node-cron)** — schedules the periodic album sync and cloud-photo eviction jobs.
+- **[ArduinoJson](https://arduinojson.org/)** by Benoit Blanchon — JSON parsing/serialization in the ESP32 firmware (captive portal config, frame telemetry).
+- **[PlatformIO](https://platformio.org/)** and the **[Arduino-ESP32](https://github.com/espressif/arduino-esp32)** core — the firmware build system and hardware abstraction layer for the ESP32-S3.
+- **[Material Symbols](https://fonts.google.com/icons)** and the **[Urbanist](https://fonts.google.com/specimen/Urbanist)** / **[Gabarito](https://fonts.google.com/specimen/Gabarito)** typefaces (Google Fonts) — the dashboard's iconography and type.
+
+And thank you to **Good Display** for the GDEB0709E01 panel and its accompanying reference demo, which was invaluable for confirming the driver's init/refresh/sleep command sequences during development.

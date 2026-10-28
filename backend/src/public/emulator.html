@@ -213,6 +213,9 @@
           <span class="stat-value" id="batLabel">4.12 V (95%)</span>
         </div>
         <div class="stat-row">
+          <span class="stat-label">Firmware Version:</span>
+          <span class="stat-value" id="fwVersionLabel" style="font-family: monospace;">1.0.0-EMU</span>
+        </div>
         <div class="stat-row">
           <span class="stat-label">Current Image ID:</span>
           <span class="stat-value" id="imageIdLabel" style="font-family: monospace;">-</span>
@@ -398,12 +401,15 @@
       setStatus('DEEP SLEEP', 'pill-sleep');
     }
 
+    let emulatorFirmwareVersion = sessionStorage.getItem('cuadro_emu_fw') || '1.0.0-EMU';
+    document.getElementById('fwVersionLabel').textContent = emulatorFirmwareVersion;
+
     // Main frame check-in & fetch function
     async function fetchNextFrame() {
       const baseUrl = document.getElementById('serverUrl').value.replace(/\/+$/, '') || window.location.origin;
       const token = document.getElementById('frameToken').value;
 
-      log(`[WIFI] Connected to ${baseUrl}. Initiating pull request (${isLandscape ? 'Landscape' : 'Portrait'})...`);
+      log(`[WIFI] Connected to ${baseUrl}. Initiating pull request (${isLandscape ? 'Landscape' : 'Portrait'}, FW v${emulatorFirmwareVersion})...`);
       setStatus('FETCHING STREAM', 'pill-refresh');
 
       try {
@@ -413,7 +419,7 @@
             'Authorization': `Bearer ${token}`,
             'X-Frame-ID': 'EMULATOR-709E',
             'X-Battery-Voltage': '4.12',
-            'X-Firmware-Version': '1.0.0-EMU',
+            'X-Firmware-Version': emulatorFirmwareVersion,
             'X-Frame-Orientation': isLandscape ? 'landscape' : 'portrait'
           }
         });
@@ -425,6 +431,66 @@
         const sleepSeconds = parseInt(res.headers.get('X-Sleep-Seconds') || '14400', 10);
         const frameMode = res.headers.get('X-Frame-Mode') || 'NORMAL';
         const imageId = res.headers.get('X-Image-ID') || 'unknown';
+
+        // Handle express OTA update dispatch (0-byte body) without corrupting the canvas
+        if (frameMode === 'OTA_UPDATE' || res.headers.get('X-OTA-Available') === '1') {
+          const otaVersion = res.headers.get('X-OTA-Version') || '1.1.0';
+          const otaUrl = res.headers.get('X-OTA-Url') || `/api/v1/frame/ota/bin?version=${encodeURIComponent(otaVersion)}`;
+          const otaSha256 = res.headers.get('X-OTA-SHA256') || '';
+          log(`[OTA] Firmware update v${otaVersion} announced! Express mode=${frameMode}. Starting OTA stream...`, 'warn');
+          setStatus('OTA FLASHING', 'pill-refresh');
+
+          await fetch(`${baseUrl}/api/v1/frame/ota/status`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'X-Frame-ID': 'EMULATOR-709E'
+            },
+            body: JSON.stringify({ version: otaVersion, status: 'UPDATING', batteryVoltage: 4.12 })
+          });
+
+          const binUrl = otaUrl.startsWith('http') ? otaUrl : `${baseUrl}${otaUrl}`;
+          const binRes = await fetch(binUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'X-Frame-ID': 'EMULATOR-709E',
+              'X-Firmware-Version': emulatorFirmwareVersion
+            }
+          });
+          if (!binRes.ok) {
+            throw new Error(`OTA binary download failed: HTTP ${binRes.status}`);
+          }
+          const binBuf = await binRes.arrayBuffer();
+          log(`[OTA] Downloaded ${binBuf.byteLength} bytes (SHA-256: ${otaSha256.slice(0, 12)}...). Writing to inactive OTA slot...`, 'success');
+
+          await fetch(`${baseUrl}/api/v1/frame/ota/status`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'X-Frame-ID': 'EMULATOR-709E'
+            },
+            body: JSON.stringify({ version: otaVersion, status: 'FLASHED', batteryVoltage: 4.12 })
+          });
+
+          log(`[OTA] Rebooting simulated ESP32-S3 into firmware v${otaVersion}...`, 'warn');
+          emulatorFirmwareVersion = otaVersion;
+          sessionStorage.setItem('cuadro_emu_fw', emulatorFirmwareVersion);
+          document.getElementById('fwVersionLabel').textContent = emulatorFirmwareVersion;
+
+          await fetch(`${baseUrl}/api/v1/frame/ota/status`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+              'X-Frame-ID': 'EMULATOR-709E'
+            },
+            body: JSON.stringify({ version: otaVersion, status: 'SUCCESS', batteryVoltage: 4.12 })
+          });
+          log(`[OTA] Boot validated! Running v${emulatorFirmwareVersion}. Polling for next photo...`, 'success');
+          return fetchNextFrame();
+        }
 
         document.getElementById('imageIdLabel').textContent = imageId.slice(0, 16);
         log(`[HTTP 200] Mode: ${frameMode}, Sleep: ${sleepSeconds}s, Image: ${imageId}`);

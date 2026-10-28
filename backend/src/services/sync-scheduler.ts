@@ -291,8 +291,18 @@ export async function ingestPhoto(
 
   const now = Date.now();
   db.prepare(`
-    INSERT OR REPLACE INTO photos (id, source, source_id, original_url, file_path, bin_path, width, height, orientation, uploaded_at, is_active, album_source_id, downloaded_at)
+    INSERT INTO photos (id, source, source_id, original_url, file_path, bin_path, width, height, orientation, uploaded_at, is_active, album_source_id, downloaded_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      file_path = excluded.file_path,
+      bin_path = excluded.bin_path,
+      width = excluded.width,
+      height = excluded.height,
+      orientation = excluded.orientation,
+      uploaded_at = excluded.uploaded_at,
+      is_active = 1,
+      album_source_id = COALESCE(excluded.album_source_id, photos.album_source_id),
+      downloaded_at = excluded.downloaded_at
   `).run(
     photoId,
     photo.source,

@@ -425,6 +425,23 @@ albumSourcesRouter.patch("/frames/:id", (req: Request, res: Response) => {
     }
   }
 
+  if ("targetFirmwareVersion" in body) {
+    const v = body.targetFirmwareVersion;
+    if (v !== null && (typeof v !== "string" || v.trim().length === 0)) {
+      res.status(400).json({ status: "error", error: "targetFirmwareVersion must be null or a non-empty string version." });
+      return;
+    }
+    const normalized = v === null ? null : v.trim().replace(/^[vV]/, "");
+    updates.target_firmware_version = normalized;
+    updates.ota_error = null;
+    if (normalized !== null) {
+      updates.ota_status = frame.firmware_version === normalized ? "idle" : "pending";
+    } else {
+      const activeRel = db.prepare("SELECT version FROM firmware_releases WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1").get() as { version: string } | undefined;
+      updates.ota_status = activeRel && frame.firmware_version !== activeRel.version ? "pending" : "idle";
+    }
+  }
+
   const keys = Object.keys(updates);
   if (keys.length > 0) {
     const setClause = keys.map((k) => `${k} = ?`).join(", ");

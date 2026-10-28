@@ -7,6 +7,7 @@ export interface AppConfig {
   port: number;
   dataDir: string;
   cacheDir: string;
+  firmwareDir: string;
   dbPath: string;
   frameToken: string;
   adminPassword: string;
@@ -84,11 +85,13 @@ export const DEFAULT_EPDOPTIMIZE_CONFIG: EpdOptimizeConfig = {
 
 const dataDir = process.env.DATA_DIR || path.resolve(process.cwd(), "data");
 const cacheDir = path.join(dataDir, "cache");
+const firmwareDir = path.join(dataDir, "firmware");
 
 export const config: AppConfig = {
   port: parseInt(process.env.PORT || "8080", 10),
   dataDir,
   cacheDir,
+  firmwareDir,
   dbPath: path.join(dataDir, "memories.sqlite"),
   frameToken: process.env.FRAME_TOKEN || "memories-frame-secure-token-12345",
   // No hardcoded default here: if ADMIN_PASSWORD isn't set in the environment, this stays

@@ -124,6 +124,7 @@
       <button type="button" class="tab-btn" data-tab="album-sources"><span class="mi">cloud_sync</span> Album Sources</button>
       <button type="button" class="tab-btn" data-tab="library"><span class="mi">collections</span> Library</button>
       <button type="button" class="tab-btn" data-tab="defaults"><span class="mi">tune</span> Defaults</button>
+      <button type="button" class="tab-btn" data-tab="firmware"><span class="mi">system_update</span> Firmware</button>
     </nav>
 
     <!-- ============ FRAMES TAB ============ -->
@@ -390,6 +391,77 @@
         </div>
       </div>
     </section>
+
+    <!-- ============ FIRMWARE TAB ============ -->
+    <section id="tab-firmware" class="tab-panel">
+      <div class="card" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.75rem;">
+          <div>
+            <h2><span class="mi">system_update</span> Over The Air (OTA) Firmware</h2>
+            <p style="color: var(--muted); font-size: 0.85rem;">Manage firmware versions, upload compiled ESP32-S3 binaries, and deploy updates wirelessly.</p>
+          </div>
+          <button class="btn btn-sm" onclick="openUploadFirmwareModal()"><span class="mi">upload</span> Upload New Binary</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.25rem; margin-bottom: 1.75rem;">
+          <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="color: var(--muted); font-size: 0.75rem; text-transform: uppercase;">Active Fleet Release</div>
+            <div id="statActiveFirmware" style="font-size: 1.5rem; font-weight: 700; margin-top: 0.25rem; font-family: 'Gabarito', sans-serif;">None</div>
+          </div>
+          <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="color: var(--muted); font-size: 0.75rem; text-transform: uppercase;">Fleet Distribution</div>
+            <div id="statFirmwareDistribution" style="font-size: 0.95rem; font-weight: 600; margin-top: 0.25rem; color: var(--text);">-</div>
+          </div>
+          <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <div style="color: var(--muted); font-size: 0.75rem; text-transform: uppercase;">Pending Frame Updates</div>
+            <div id="statPendingOta" style="font-size: 1.5rem; font-weight: 700; margin-top: 0.25rem; color: var(--accent); font-family: 'Gabarito', sans-serif;">0</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <h3 style="font-size: 1.05rem; margin-bottom: 0.6rem;">Registered Firmware Releases</h3>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border);">
+                  <th style="padding: 0.6rem;">Version</th>
+                  <th style="padding: 0.6rem;">Role</th>
+                  <th style="padding: 0.6rem;">Size</th>
+                  <th style="padding: 0.6rem;">SHA-256 Checksum</th>
+                  <th style="padding: 0.6rem;">Release Notes</th>
+                  <th style="padding: 0.6rem;">Uploaded</th>
+                  <th style="padding: 0.6rem; text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="firmwareReleasesTableBody">
+                <tr><td colspan="7" class="empty-state">Loading firmware releases...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="margin-top: 2rem;">
+          <h3 style="font-size: 1.05rem; margin-bottom: 0.6rem;">Connected Frame Rollout Status</h3>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border);">
+                  <th style="padding: 0.6rem;">Frame Name / ID</th>
+                  <th style="padding: 0.6rem;">Installed Version</th>
+                  <th style="padding: 0.6rem;">Target Version</th>
+                  <th style="padding: 0.6rem;">OTA Status</th>
+                  <th style="padding: 0.6rem;">Last Attempt</th>
+                  <th style="padding: 0.6rem; text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="firmwareFramesTableBody">
+                <tr><td colspan="6" class="empty-state">Loading frames...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 
   <!-- Frame Detail / Edit Sheet -->
@@ -474,6 +546,43 @@
     </div>
   </div>
 
+  <!-- Upload Firmware Modal -->
+  <div id="firmwareUploadOverlay" class="overlay" onclick="if (event.target === this) closeUploadFirmwareModal()">
+    <div class="card overlay-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>Upload Firmware Binary (.bin)</h2>
+        <button class="btn btn-sm btn-secondary" onclick="closeUploadFirmwareModal()"><span class="mi">close</span></button>
+      </div>
+      <form id="firmwareUploadForm" onsubmit="handleFirmwareUpload(event)">
+        <div style="display: flex; flex-direction: column; gap: 0.9rem; font-size: 0.85rem;">
+          <div>
+            <label style="display: block; font-weight: 600; margin-bottom: 0.3rem;">Target Version String *</label>
+            <input type="text" id="fwVersionInput" placeholder="e.g. 1.1.0" required style="width: 100%; padding: 0.5rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
+            <p class="hint-box">Must match the version string in your code (e.g. <code>FIRMWARE_VERSION "1.1.0"</code>).</p>
+          </div>
+          <div>
+            <label style="display: block; font-weight: 600; margin-bottom: 0.3rem;">Compiled Binary File (.bin) *</label>
+            <input type="file" id="fwFileInput" accept=".bin" required style="width: 100%; background: var(--input-bg); border: 1px solid var(--border); padding: 0.5rem; border-radius: 6px;">
+            <p class="hint-box">Typically located in <code>firmware/.pio/build/esp32-s3-devkitc-1/firmware.bin</code>.</p>
+          </div>
+          <div>
+            <label style="display: block; font-weight: 600; margin-bottom: 0.3rem;">Release Notes / Changelog</label>
+            <textarea id="fwNotesInput" rows="2" placeholder="e.g. Added Over The Air updates, improved display sleep timing" style="width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; font-family: inherit; font-size: 0.85rem; color: var(--text);"></textarea>
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="fwSetActiveInput" checked>
+            <span>Set as active fleet default immediately</span>
+          </label>
+          <div id="fwUploadError" style="color: var(--danger); font-size: 0.8rem; display: none;"></div>
+          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeUploadFirmwareModal()">Cancel</button>
+            <button type="submit" id="fwUploadSubmitBtn" class="btn btn-sm"><span class="mi">upload</span> Upload & Register</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     function getAuthHeaders() {
       // Admin session is carried via the HttpOnly session cookie (sent automatically
@@ -540,6 +649,7 @@
     function switchTab(name) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === name));
       document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.toggle('active', panel.id === `tab-${name}`));
+      if (name === 'firmware') fetchFirmwareData();
     }
 
     document.querySelector('.tabs').addEventListener('click', (e) => {
@@ -677,6 +787,17 @@
             <div style="font-size: 0.78rem; color: var(--muted);">
               <div><span class="mi" style="font-size: 1em;">schedule</span> Next refresh: ${nextRefresh}</div>
               <div style="margin-top: 0.2rem;"><span class="mi" style="font-size: 1em;">cloud_sync</span> Sources: ${sourceNames}</div>
+              <div style="margin-top: 0.2rem; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                <span class="mi" style="font-size: 1em;">system_update</span> Firmware: <strong style="color: var(--text);">v${escapeHtml(f.firmware_version || '1.0.0')}</strong>
+                ${(() => {
+                  const targetFw = f.effectiveTargetFirmwareVersion || f.targetFirmwareVersion;
+                  if (targetFw && targetFw !== f.firmware_version) {
+                    const badgeCls = f.otaStatus === 'failed' ? 'badge-offline' : (f.otaStatus === 'updating' || f.otaStatus === 'flashed') ? 'badge-active' : 'badge-sleeping';
+                    return `<span class="status-badge ${badgeCls}" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">→ v${escapeHtml(targetFw)} (${escapeHtml(f.otaStatus || 'pending')})</span>`;
+                  }
+                  return '';
+                })()}
+              </div>
             </div>
             <div class="actions" style="margin-top: 0.25rem; flex-wrap: wrap;">
               <button class="btn btn-sm btn-secondary" data-action="edit-frame" data-frame-id="${escapeHtml(f.id)}"><span class="mi">edit</span> Edit</button>
@@ -836,6 +957,31 @@
 
       const overridesSection = buildFrameOverridesHtml(f);
 
+      const releases = window.__firmwareReleases || [];
+      const firmwareSection = `
+        <div>
+          <h3 style="font-size: 1rem; margin-bottom: 0.5rem;"><span class="mi">system_update</span> Firmware &amp; Rollout Targeting</h3>
+          <div style="background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem; font-size: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="color: var(--muted);">Currently Installed:</span>
+              <strong style="color: var(--text);">v${escapeHtml(f.firmware_version || '1.0.0')}</strong>
+            </div>
+            <div style="margin-bottom: 0.6rem;">
+              <label style="display: block; color: var(--muted); margin-bottom: 0.25rem;">Target Version Override</label>
+              <select id="frameTargetFwSelect" style="width: 100%; padding: 0.4rem; background: var(--card); border: 1px solid var(--border); border-radius: 6px; color: var(--text);">
+                <option value="">(Inherit Fleet Active Default)</option>
+                ${releases.map(r => `<option value="${escapeHtml(r.version)}" ${f.targetFirmwareVersion === r.version ? 'selected' : ''}>v${escapeHtml(r.version)} ${r.is_active ? '(Active Default)' : ''}</option>`).join('')}
+              </select>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--muted); margin-bottom: 0.6rem;">
+              OTA Status: <span class="status-badge ${f.otaStatus === 'failed' ? 'badge-offline' : f.otaStatus === 'updating' ? 'badge-active' : 'badge-sleeping'}" style="font-size: 0.72rem; padding: 0.1rem 0.4rem;">${escapeHtml(f.otaStatus || 'idle')}</span>
+              ${f.otaError ? `<div style="color: var(--danger); margin-top: 0.25rem;">Error: ${escapeHtml(f.otaError)}</div>` : ''}
+            </div>
+            <button class="btn btn-sm" data-action="save-frame-target-fw" data-frame-id="${escapeHtml(f.id)}"><span class="mi">save</span> Save Target Version</button>
+          </div>
+        </div>
+      `;
+
       const dangerSection = `
         <div>
           <h3 style="font-size: 1rem; margin-bottom: 0.5rem; color: var(--danger);"><span class="mi">warning</span> Danger Zone</h3>
@@ -844,7 +990,7 @@
         </div>
       `;
 
-      document.getElementById('frameDetailBody').innerHTML = nameSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + rowsHtml + imageSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + sourcesSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + overridesSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + dangerSection;
+      document.getElementById('frameDetailBody').innerHTML = nameSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + rowsHtml + imageSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + sourcesSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + overridesSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + firmwareSection + '<hr style="border: none; border-top: 1px solid var(--border);">' + dangerSection;
       document.getElementById('frameDetailOverlay').classList.add('open');
 
       // Wire up hint text + population for the sheet we just rendered.
@@ -908,6 +1054,22 @@
       if (sourcesBtn) { saveFrameSources(sourcesBtn.dataset.frameId); return; }
       const nameBtn = e.target.closest('[data-action="save-frame-name"]');
       if (nameBtn) { saveFrameName(nameBtn.dataset.frameId); return; }
+      const fwBtn = e.target.closest('[data-action="save-frame-target-fw"]');
+      if (fwBtn) {
+        const val = document.getElementById('frameTargetFwSelect')?.value || null;
+        const res = await apiRequest(`/api/v1/admin/frames/${encodeURIComponent(fwBtn.dataset.frameId)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ targetFirmwareVersion: val })
+        });
+        if (res.ok) {
+          alert('Target firmware updated successfully.');
+          await Promise.all([fetchStatus(), fetchFirmwareData()]);
+          openFrameDetail(fwBtn.dataset.frameId);
+        } else {
+          alert('Failed to update target firmware.');
+        }
+        return;
+      }
       const deleteBtn = e.target.closest('[data-action="delete-frame-in-sheet"]');
       if (deleteBtn) {
         const deleted = await deleteFrame(deleteBtn.dataset.frameId);
@@ -1942,10 +2104,210 @@
       }
     }
 
+    // ---------------------------------------------------------------------
+    // Firmware Management (OTA)
+    // ---------------------------------------------------------------------
+    function openUploadFirmwareModal() {
+      document.getElementById('firmwareUploadForm').reset();
+      document.getElementById('fwUploadError').style.display = 'none';
+      document.getElementById('firmwareUploadOverlay').classList.add('open');
+    }
+
+    function closeUploadFirmwareModal() {
+      document.getElementById('firmwareUploadOverlay').classList.remove('open');
+    }
+
+    async function handleFirmwareUpload(event) {
+      event.preventDefault();
+      const version = document.getElementById('fwVersionInput').value.trim();
+      const fileInput = document.getElementById('fwFileInput');
+      const notes = document.getElementById('fwNotesInput').value.trim();
+      const setActive = document.getElementById('fwSetActiveInput').checked;
+      const errorEl = document.getElementById('fwUploadError');
+      const submitBtn = document.getElementById('fwUploadSubmitBtn');
+
+      if (!fileInput.files || fileInput.files.length === 0) {
+        errorEl.textContent = 'Please choose a .bin file.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      const file = fileInput.files[0];
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="mi">sync</span> Uploading...';
+      errorEl.style.display = 'none';
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const url = `/api/v1/admin/firmware/upload?version=${encodeURIComponent(version)}&notes=${encodeURIComponent(notes)}&setActive=${setActive ? '1' : '0'}`;
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/octet-stream'
+          },
+          body: arrayBuffer
+        });
+
+        if (res.status === 401) {
+          window.location.href = '/login.html';
+          return;
+        }
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Upload failed');
+        }
+
+        closeUploadFirmwareModal();
+        await Promise.all([fetchFirmwareData(), fetchStatus()]);
+        alert(`Firmware v${data.version || version} registered successfully!`);
+      } catch (err) {
+        errorEl.textContent = err.message || 'Error uploading firmware.';
+        errorEl.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span class="mi">upload</span> Upload &amp; Register';
+      }
+    }
+
+    async function fetchFirmwareData() {
+      try {
+        const res = await fetch('/api/v1/admin/firmware', { headers: getAuthHeaders() });
+        if (res.status === 401) {
+          window.location.href = '/login.html';
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        window.__firmwareReleases = data.releases || [];
+
+        // Update stats
+        const activeRelease = (data.releases || []).find(r => r.is_active || r.isActive);
+        document.getElementById('statActiveFirmware').textContent = activeRelease ? `v${activeRelease.version}` : 'None';
+
+        const distEntries = Object.entries(data.versionCounts || {});
+        document.getElementById('statFirmwareDistribution').innerHTML = distEntries.length === 0
+          ? 'No frames'
+          : distEntries.map(([v, count]) => `<span>v${escapeHtml(v)}: <strong>${count}</strong></span>`).join(' &bull; ');
+
+        const pendingCount = (data.frames || []).filter(f => f.otaStatus === 'pending' || f.otaStatus === 'updating' || f.otaStatus === 'flashed').length;
+        document.getElementById('statPendingOta').textContent = pendingCount;
+
+        // Render Releases Table
+        const relTbody = document.getElementById('firmwareReleasesTableBody');
+        if (!data.releases || data.releases.length === 0) {
+          relTbody.innerHTML = '<tr><td colspan="7" class="empty-state">No firmware releases registered yet. Upload your first compiled .bin above.</td></tr>';
+        } else {
+          relTbody.innerHTML = data.releases.map(r => {
+            const isActive = r.is_active || r.isActive;
+            const sizeKb = Math.round(r.size_bytes / 1024);
+            const shaShort = r.sha256 ? `${r.sha256.slice(0, 10)}...${r.sha256.slice(-6)}` : '-';
+            const roleBadge = isActive
+              ? '<span class="status-badge badge-active"><span class="mi">check_circle</span> Active Default</span>'
+              : '<span class="status-badge badge-sleeping">Canary / Inactive</span>';
+
+            return `
+              <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 0.6rem; font-weight: 700;">v${escapeHtml(r.version)}</td>
+                <td style="padding: 0.6rem;">${roleBadge}</td>
+                <td style="padding: 0.6rem;">${sizeKb} KB</td>
+                <td style="padding: 0.6rem;">
+                  <code style="font-size: 0.75rem;" title="${escapeHtml(r.sha256)}">${escapeHtml(shaShort)}</code>
+                </td>
+                <td style="padding: 0.6rem; color: var(--muted); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                  ${escapeHtml(r.release_notes || '-')}
+                </td>
+                <td style="padding: 0.6rem; color: var(--muted);">${formatDateTime(r.created_at)}</td>
+                <td style="padding: 0.6rem; text-align: right;">
+                  <div style="display: inline-flex; gap: 0.4rem;">
+                    ${!isActive ? `<button class="btn btn-sm" data-action="deploy-fw-fleet" data-version="${escapeHtml(r.version)}"><span class="mi">publish</span> Deploy Fleet</button>` : ''}
+                    <button class="btn btn-sm btn-danger" data-action="delete-fw-release" data-version="${escapeHtml(r.version)}"><span class="mi">delete</span></button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        // Render Frames Rollout Table
+        const framesTbody = document.getElementById('firmwareFramesTableBody');
+        if (!data.frames || data.frames.length === 0) {
+          framesTbody.innerHTML = '<tr><td colspan="6" class="empty-state">No connected frames registered yet.</td></tr>';
+        } else {
+          framesTbody.innerHTML = data.frames.map(f => {
+            const statusBadge = f.otaStatus === 'success'
+              ? '<span class="status-badge badge-active">Up to date</span>'
+              : f.otaStatus === 'updating'
+              ? '<span class="status-badge badge-active"><span class="mi">sync</span> Updating</span>'
+              : f.otaStatus === 'flashed'
+              ? '<span class="status-badge badge-active"><span class="mi">restart_alt</span> Rebooting</span>'
+              : f.otaStatus === 'failed'
+              ? '<span class="status-badge badge-offline" title="' + escapeHtml(f.otaError || '') + '"><span class="mi">error</span> Failed</span>'
+              : f.otaStatus === 'pending'
+              ? '<span class="status-badge badge-sleeping">Pending</span>'
+              : '<span class="status-badge badge-sleeping">Idle</span>';
+
+            return `
+              <tr style="border-bottom: 1px solid var(--border);">
+                <td style="padding: 0.6rem;">
+                  <strong>${escapeHtml(f.name)}</strong>
+                  <div style="font-size: 0.72rem; color: var(--muted);"><code>${escapeHtml(f.id)}</code></div>
+                </td>
+                <td style="padding: 0.6rem; font-weight: 600;">v${escapeHtml(f.currentVersion || '1.0.0')}</td>
+                <td style="padding: 0.6rem;">${f.targetVersion ? `<strong>v${escapeHtml(f.targetVersion)}</strong> (Override)` : '<span style="color:var(--muted);">(Fleet Default)</span>'}</td>
+                <td style="padding: 0.6rem;">${statusBadge}</td>
+                <td style="padding: 0.6rem; color: var(--muted); font-size: 0.8rem;">${f.otaAttemptedAt ? formatDateTime(f.otaAttemptedAt) : '-'}</td>
+                <td style="padding: 0.6rem; text-align: right;">
+                  <button class="btn btn-sm btn-secondary" data-action="configure-frame-fw" data-frame-id="${escapeHtml(f.id)}"><span class="mi">edit</span> Configure</button>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error('Error fetching firmware info:', err);
+      }
+    }
+
+    document.getElementById('firmwareReleasesTableBody').addEventListener('click', (e) => {
+      const deployBtn = e.target.closest('[data-action="deploy-fw-fleet"]');
+      if (deployBtn) { deployFirmwareFleet(deployBtn.dataset.version); return; }
+      const deleteBtn = e.target.closest('[data-action="delete-fw-release"]');
+      if (deleteBtn) { deleteFirmwareRelease(deleteBtn.dataset.version); return; }
+    });
+
+    document.getElementById('firmwareFramesTableBody').addEventListener('click', (e) => {
+      const cfgBtn = e.target.closest('[data-action="configure-frame-fw"]');
+      if (cfgBtn) { openFrameDetail(cfgBtn.dataset.frameId); return; }
+    });
+
+    async function deployFirmwareFleet(version) {
+      if (!confirm(`Deploy firmware v${version} as the fleet-wide active default? Frames without overrides will upgrade on their next check-in.`)) return;
+      const res = await apiRequest(`/api/v1/admin/firmware/${encodeURIComponent(version)}/deploy`, { method: 'POST' });
+      if (res.ok) {
+        await Promise.all([fetchFirmwareData(), fetchStatus()]);
+        alert(`Firmware v${version} set as active fleet default.`);
+      } else {
+        alert('Failed to deploy firmware.');
+      }
+    }
+
+    async function deleteFirmwareRelease(version) {
+      if (!confirm(`Permanently delete firmware release v${version} and remove binary from disk?`)) return;
+      const res = await apiRequest(`/api/v1/admin/firmware/${encodeURIComponent(version)}`, { method: 'DELETE' });
+      if (res.ok) {
+        await Promise.all([fetchFirmwareData(), fetchStatus()]);
+      } else {
+        alert('Failed to delete firmware release.');
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       fetchStatus();
       fetchSettings();
       fetchFramesExtended();
+      fetchFirmwareData();
       // Album sources must be loaded before the library gallery renders, so each photo's
       // "assign to source" dropdown has real options instead of just "Unassigned" until
       // the next unrelated re-render.

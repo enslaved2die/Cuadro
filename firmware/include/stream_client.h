@@ -16,6 +16,12 @@ struct StreamResult {
   // it actually rendered the photo for (see backend/src/api/frame.ts) - so the
   // caller can persist it and keep the on-panel setup screen's orientation in sync.
   String frameOrientation;
+  // Over The Air firmware update metadata from backend headers
+  bool hasOtaUpdate;
+  String otaVersion;
+  String otaUrl;
+  String otaSha256;
+  size_t otaSize;
 };
 
 class StreamClient {

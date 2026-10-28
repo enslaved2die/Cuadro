@@ -88,6 +88,7 @@ export function createSession(ip: string): string {
   const expiresAt = now + SESSION_LIFETIME_MS;
 
   const db = getDb();
+  db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(now);
   db.prepare(`
     INSERT INTO sessions (token, created_at, expires_at, ip)
     VALUES (?, ?, ?, ?)

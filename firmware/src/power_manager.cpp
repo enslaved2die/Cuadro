@@ -70,7 +70,8 @@ ButtonAction PowerManager::checkButtonAction() {
   // 2. Check Button 2 (SW3, GPIO 13: Wi-Fi Hotspot) or Boot Button (GPIO 0)
   if ((ext1_pins & (1ULL << BUTTON_HOTSPOT_PIN)) || isPinActive(BUTTON_HOTSPOT_PIN, BUTTON_ACTIVE_LEVEL) ||
       (cause == ESP_SLEEP_WAKEUP_EXT0) || isPinActive(BUTTON_BOOT_PIN, LOW)) {
-    int pin = isPinActive(BUTTON_HOTSPOT_PIN, BUTTON_ACTIVE_LEVEL) ? BUTTON_HOTSPOT_PIN : BUTTON_BOOT_PIN;
+    bool isHotspotBtn = (ext1_pins & (1ULL << BUTTON_HOTSPOT_PIN)) || isPinActive(BUTTON_HOTSPOT_PIN, BUTTON_ACTIVE_LEVEL);
+    int pin = isHotspotBtn ? BUTTON_HOTSPOT_PIN : BUTTON_BOOT_PIN;
     int activeLvl = (pin == BUTTON_BOOT_PIN) ? LOW : BUTTON_ACTIVE_LEVEL;
 
     log_i("[BUTTON] Button 2 / BOOT detected! Measuring press duration...");
@@ -134,6 +135,7 @@ void PowerManager::lightSleep(uint32_t sleepSeconds) {
     esp_sleep_enable_timer_wakeup(sleepMicroseconds);
     log_i("[POWER] Timer wakeup set for %u s", sleepSeconds);
   } else {
+    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TIMER);
     log_i("[POWER] Storage mode: timer disabled. Sleeping indefinitely until button press.");
   }
 

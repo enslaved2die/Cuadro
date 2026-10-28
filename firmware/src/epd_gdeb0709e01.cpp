@@ -591,6 +591,9 @@ void EPD_GDEB0709E01::displaySetupScreen(const char* apSsid, const char* ipAddre
 }
 
 void EPD_GDEB0709E01::powerSleep() {
+  if (digitalRead(EPD_PWR_PIN) == LOW) {
+    return;
+  }
   selectBoth(true);
   writeCommand(0x02);
   writeDataByte(0xA5);

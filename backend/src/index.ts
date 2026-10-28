@@ -33,14 +33,14 @@ app.use((req, res, next) => {
 // Enable CORS for web emulator and cross-origin frame clients
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, OPTIONS, DELETE");
   res.setHeader(
     "Access-Control-Allow-Headers",
     "Content-Type, Authorization, X-Frame-ID, X-Battery-Voltage, X-Firmware-Version, X-Frame-Orientation"
   );
   res.setHeader(
     "Access-Control-Expose-Headers",
-    "X-Sleep-Seconds, X-Frame-Mode, X-Image-ID, Content-Length, X-Frame-Orientation"
+    "X-Sleep-Seconds, X-Frame-Mode, X-Image-ID, Content-Length, X-Frame-Orientation, X-OTA-Available, X-OTA-Version, X-OTA-Url, X-OTA-SHA256, X-OTA-Size, X-Firmware-SHA256, X-Firmware-Version"
   );
   if (req.method === "OPTIONS") {
     res.sendStatus(204);
@@ -94,8 +94,16 @@ app.get("/emulator.html", requireWebAuth, (req, res) => {
   res.sendFile(path.join(publicDir, "emulator.html"));
 });
 
-// Static assets (CSS/images/favicons) fallback
-app.use(express.static(publicDir));
+// Static assets (CSS/images/favicons) fallback — disable directory index and guard
+// protected HTML pages against case-insensitive filesystem bypasses (e.g. /INDEX.HTML on macOS)
+app.use((req, res, next) => {
+  const lower = req.path.toLowerCase();
+  if (lower === "/index.html" || lower === "/emulator.html") {
+    return requireWebAuth(req, res, next);
+  }
+  next();
+});
+app.use(express.static(publicDir, { index: false }));
 
 // Initialize database & start background workers
 try {

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import sharp from "sharp";
 import { Router, Request, Response } from "express";
 import { requireAdminAuth } from "./middleware.js";
@@ -88,6 +89,8 @@ adminRouter.get("/status", (req: Request, res: Response) => {
   const rawFrames = db.prepare("SELECT * FROM frames ORDER BY last_checkin_at DESC").all() as any[];
   const photoCount = (db.prepare("SELECT COUNT(*) as count FROM photos WHERE is_active = 1").get() as { count: number }).count;
   const queuedCount = (db.prepare("SELECT COUNT(*) as count FROM queue WHERE status = 'pending'").get() as { count: number }).count;
+  const activeReleaseRow = db.prepare("SELECT version FROM firmware_releases WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1").get() as { version: string } | undefined;
+  const activeFirmwareVersion = activeReleaseRow?.version || null;
 
   // Fetch every frame's assigned album sources in one query (rather than one query per
   // frame) so this endpoint stays free of N+1 lookups as the number of frames grows.
@@ -138,6 +141,11 @@ adminRouter.get("/status", (req: Request, res: Response) => {
       epdoptimizeConfig,
       refreshSchedule,
       storageMode: Boolean(f.storage_mode),
+      targetFirmwareVersion: f.target_firmware_version || null,
+      effectiveTargetFirmwareVersion: f.target_firmware_version || activeFirmwareVersion,
+      otaStatus: (f.ota_status || "idle").toLowerCase(),
+      otaError: f.ota_error || null,
+      otaAttemptedAt: f.ota_attempted_at || null,
       // Assigned album sources (empty array means "no explicit assignment" -> whole-library
       // fallback per Phase 1 semantics in queue.ts#getNextPhoto).
       albumSourceIds: albumSources.map((s) => s.id),
@@ -188,6 +196,8 @@ adminRouter.post("/sync", async (req: Request, res: Response) => {
   }
 });
 
+const MAX_PHOTO_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB max photo upload
+
 /**
  * POST /api/v1/admin/upload
  * Direct binary/form upload of an image.
@@ -195,8 +205,28 @@ adminRouter.post("/sync", async (req: Request, res: Response) => {
 adminRouter.post("/upload", async (req: Request, res: Response) => {
   try {
     const rawChunks: Buffer[] = [];
-    req.on("data", (chunk) => rawChunks.push(chunk));
-    await new Promise((resolve) => req.on("end", resolve));
+    let totalBytes = 0;
+    let oversized = false;
+
+    await new Promise<void>((resolve, reject) => {
+      req.on("data", (chunk: Buffer) => {
+        totalBytes += chunk.length;
+        if (totalBytes > MAX_PHOTO_UPLOAD_BYTES) {
+          oversized = true;
+          req.resume();
+          return;
+        }
+        rawChunks.push(chunk);
+      });
+      req.on("end", () => resolve());
+      req.on("error", (err) => reject(err));
+    });
+
+    if (oversized) {
+      res.status(413).json({ error: "Upload exceeds maximum photo size (50 MB)." });
+      return;
+    }
+
     const imageBuffer = Buffer.concat(rawChunks);
 
     if (imageBuffer.length === 0) {
@@ -227,7 +257,7 @@ adminRouter.get("/photos", (req: Request, res: Response) => {
   const photos = db.prepare("SELECT * FROM photos WHERE is_active = 1 ORDER BY uploaded_at DESC LIMIT 100").all() as any[];
   const enhanced = photos.map(p => ({
     ...p,
-    hasThumb: fs.existsSync(path.join(config.cacheDir, `${p.id}_thumb.jpg`))
+    hasThumb: fs.existsSync(path.join(config.cacheDir, `${path.basename(String(p.id))}_thumb.jpg`))
   }));
   res.json(enhanced);
 });
@@ -236,19 +266,20 @@ adminRouter.get("/photos", (req: Request, res: Response) => {
  * GET /api/v1/admin/photos/:photoId/thumb
  */
 adminRouter.get("/photos/:photoId/thumb", (req: Request, res: Response) => {
-  const photoId = String(req.params.photoId);
+  const photoId = path.basename(String(req.params.photoId));
   const thumbPath = path.join(config.cacheDir, `${photoId}_thumb.jpg`);
   const origPath = path.join(config.cacheDir, `${photoId}_orig.jpg`);
 
-  if (fs.existsSync(thumbPath)) {
+  const targetPath = fs.existsSync(thumbPath) ? thumbPath : fs.existsSync(origPath) ? origPath : null;
+  if (targetPath) {
     res.setHeader("Content-Type", "image/jpeg");
-    fs.createReadStream(thumbPath).pipe(res);
-    return;
-  }
-
-  if (fs.existsSync(origPath)) {
-    res.setHeader("Content-Type", "image/jpeg");
-    fs.createReadStream(origPath).pipe(res);
+    const stream = fs.createReadStream(targetPath);
+    stream.on("error", () => {
+      if (!res.headersSent) res.status(500).end();
+      else res.destroy();
+    });
+    res.on("close", () => stream.destroy());
+    stream.pipe(res);
     return;
   }
 
@@ -293,9 +324,27 @@ adminRouter.patch("/photos/:photoId", (req: Request, res: Response) => {
  */
 adminRouter.delete("/photos/:photoId", (req: Request, res: Response) => {
   const photoId = String(req.params.photoId);
+  const safeId = path.basename(photoId);
   const db = getDb();
-  db.prepare("UPDATE photos SET is_active = 0 WHERE id = ?").run(photoId);
+  db.prepare("UPDATE photos SET is_active = 0, file_path = '', bin_path = '', downloaded_at = NULL WHERE id = ?").run(photoId);
   db.prepare("DELETE FROM queue WHERE photo_id = ?").run(photoId);
+
+  // Reclaim cached original, thumbnail, and rendered .bin files from disk
+  try {
+    for (const entry of fs.readdirSync(config.cacheDir)) {
+      if (
+        entry === `${safeId}_orig.jpg` ||
+        entry === `${safeId}_thumb.jpg` ||
+        entry === `${safeId}.bin` ||
+        (entry.startsWith(`${safeId}_`) && entry.endsWith(".bin"))
+      ) {
+        fs.rmSync(path.join(config.cacheDir, entry), { force: true });
+      }
+    }
+  } catch {
+    // Non-fatal if cache cleanup fails
+  }
+
   res.json({ status: "success", message: `Photo ${photoId} deleted.` });
 });
 
@@ -502,4 +551,227 @@ adminRouter.post("/test-album", async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// Maximum ESP32 OTA partition capacity in default_16MB.csv (app0 / app1 = 0x640000 = 6,553,600 bytes)
+const MAX_FIRMWARE_BIN_BYTES = 0x640000;
+
+/**
+ * GET /api/v1/admin/firmware
+ * Returns all uploaded firmware releases, active fleet release, and per-frame rollout status.
+ */
+adminRouter.get("/firmware", (req: Request, res: Response) => {
+  const db = getDb();
+  const releases = db.prepare("SELECT * FROM firmware_releases ORDER BY created_at DESC").all() as any[];
+  const frames = db.prepare(`
+    SELECT id, name, firmware_version, target_firmware_version, ota_status, ota_error, ota_attempted_at, last_checkin_at
+    FROM frames
+    ORDER BY name ASC
+  `).all() as any[];
+
+  const versionCounts: Record<string, number> = {};
+  for (const f of frames) {
+    const v = f.firmware_version || "unknown";
+    versionCounts[v] = (versionCounts[v] || 0) + 1;
+  }
+
+  res.json({
+    releases: releases.map(r => ({
+      ...r,
+      isActive: Boolean(r.is_active),
+      existsOnDisk: fs.existsSync(r.file_path)
+    })),
+    versionCounts,
+    frames: frames.map(f => ({
+      id: f.id,
+      name: f.name,
+      currentVersion: f.firmware_version || null,
+      targetVersion: f.target_firmware_version || null,
+      otaStatus: (f.ota_status || "idle").toLowerCase(),
+      otaError: f.ota_error || null,
+      otaAttemptedAt: f.ota_attempted_at || null,
+      lastCheckinAt: f.last_checkin_at || null
+    }))
+  });
+});
+
+/**
+ * POST /api/v1/admin/firmware/upload
+ * Accepts a raw .bin file upload, verifies ESP32 magic byte (0xE9), calculates SHA-256,
+ * and registers the release.
+ */
+adminRouter.post("/firmware/upload", async (req: Request, res: Response) => {
+  try {
+    const rawChunks: Buffer[] = [];
+    let totalBytes = 0;
+    let oversized = false;
+
+    await new Promise<void>((resolve, reject) => {
+      req.on("data", (chunk: Buffer) => {
+        totalBytes += chunk.length;
+        if (totalBytes > MAX_FIRMWARE_BIN_BYTES) {
+          oversized = true;
+          req.resume(); // drain without buffering further
+          return;
+        }
+        rawChunks.push(chunk);
+      });
+      req.on("end", () => resolve());
+      req.on("error", (err) => reject(err));
+    });
+
+    if (oversized) {
+      res.status(413).json({
+        error: `Firmware binary exceeds ESP32 OTA partition capacity (${Math.round(MAX_FIRMWARE_BIN_BYTES / 1024)} KB max).`
+      });
+      return;
+    }
+
+    const binBuffer = Buffer.concat(rawChunks);
+
+    if (binBuffer.length === 0) {
+      res.status(400).json({ error: "Empty firmware binary payload." });
+      return;
+    }
+
+    // Verify standard ESP32 image header magic byte (0xE9)
+    if (binBuffer[0] !== 0xE9) {
+      res.status(400).json({ error: "Invalid firmware image: ESP32 magic byte 0xE9 missing from header." });
+      return;
+    }
+
+    const rawVersion = typeof req.query.version === "string" ? req.query.version.trim() : "";
+    const version = rawVersion.replace(/^[vV]/, "");
+    if (!version || !/^[\w\.\-]+$/.test(version)) {
+      res.status(400).json({ error: "A valid 'version' query parameter is required (e.g. ?version=1.1.0)." });
+      return;
+    }
+
+    const releaseNotes = typeof req.query.notes === "string" ? req.query.notes.trim() : "";
+    const setActive = req.query.setActive === "1" || req.query.setActive === "true";
+
+    const sha256 = crypto.createHash("sha256").update(binBuffer).digest("hex");
+    const filename = `cuadro_v${version}.bin`;
+    const filePath = path.join(config.firmwareDir, filename);
+
+    fs.writeFileSync(filePath, binBuffer);
+
+    const db = getDb();
+    if (setActive) {
+      db.prepare("UPDATE firmware_releases SET is_active = 0").run();
+    }
+
+    db.prepare(`
+      INSERT OR REPLACE INTO firmware_releases (version, filename, file_path, sha256, size_bytes, release_notes, is_active, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      version,
+      filename,
+      filePath,
+      sha256,
+      binBuffer.length,
+      releaseNotes,
+      setActive ? 1 : 0,
+      Date.now()
+    );
+
+    if (setActive) {
+      db.prepare(`
+        UPDATE frames
+        SET ota_status = CASE WHEN firmware_version = ? THEN 'idle' ELSE 'pending' END,
+            ota_error = NULL
+        WHERE target_firmware_version IS NULL
+      `).run(version);
+    }
+
+    console.log(`[FIRMWARE] Registered release v${version} (${binBuffer.length} bytes, SHA-256: ${sha256}, active: ${setActive})`);
+
+    res.json({
+      status: "success",
+      version,
+      filename,
+      sha256,
+      sizeBytes: binBuffer.length,
+      isActive: setActive
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/v1/admin/firmware/:version/deploy
+ * Deploys a firmware release either fleet-wide (as active default) or targeting a specific frame.
+ */
+adminRouter.post("/firmware/:version/deploy", (req: Request, res: Response) => {
+  const version = String(req.params.version).trim().replace(/^[vV]/, "");
+  const { frameId } = req.body || {};
+  const db = getDb();
+
+  const release = db.prepare("SELECT * FROM firmware_releases WHERE version = ?").get(version);
+  if (!release) {
+    res.status(404).json({ error: `Firmware release v${version} not found.` });
+    return;
+  }
+
+  if (frameId) {
+    // Canary rollout targeting a specific frame
+    db.prepare(`
+      UPDATE frames
+      SET target_firmware_version = ?,
+          ota_status = CASE WHEN firmware_version = ? THEN 'idle' ELSE 'pending' END,
+          ota_error = NULL
+      WHERE id = ?
+    `).run(version, version, frameId);
+    res.json({ status: "success", message: `Firmware v${version} queued for canary rollout on frame ${frameId}.` });
+  } else {
+    // Set as fleet-wide active default
+    db.prepare("UPDATE firmware_releases SET is_active = 0").run();
+    db.prepare("UPDATE firmware_releases SET is_active = 1 WHERE version = ?").run(version);
+    // Frames without explicit target overrides will now receive this version
+    db.prepare(`
+      UPDATE frames
+      SET ota_status = CASE WHEN firmware_version = ? THEN 'idle' ELSE 'pending' END,
+          ota_error = NULL
+      WHERE target_firmware_version IS NULL
+    `).run(version);
+
+    res.json({ status: "success", message: `Firmware v${version} set as active fleet default.` });
+  }
+});
+
+/**
+ * DELETE /api/v1/admin/firmware/:version
+ * Removes a firmware release record and deletes the binary from disk.
+ */
+adminRouter.delete("/firmware/:version", (req: Request, res: Response) => {
+  const version = String(req.params.version).trim().replace(/^[vV]/, "");
+  const db = getDb();
+  const release = db.prepare("SELECT file_path, is_active FROM firmware_releases WHERE version = ?").get(version) as any;
+
+  if (release) {
+    if (fs.existsSync(release.file_path)) {
+      try {
+        fs.unlinkSync(release.file_path);
+      } catch (err) {
+        console.warn(`[FIRMWARE] Failed to remove ${release.file_path} from disk:`, err);
+      }
+    }
+    db.prepare("DELETE FROM firmware_releases WHERE version = ?").run(version);
+    db.prepare(`
+      UPDATE frames
+      SET target_firmware_version = NULL,
+          ota_status = CASE WHEN ota_status = 'pending' THEN 'idle' ELSE ota_status END
+      WHERE target_firmware_version = ?
+    `).run(version);
+    if (release.is_active) {
+      db.prepare(`
+        UPDATE frames
+        SET ota_status = 'idle'
+        WHERE target_firmware_version IS NULL AND ota_status = 'pending'
+      `).run();
+    }
+  }
+
+  res.json({ status: "success", message: `Firmware release v${version} removed.` });
 });

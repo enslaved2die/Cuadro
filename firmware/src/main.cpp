@@ -5,12 +5,14 @@
 #include "captive_portal.h"
 #include "stream_client.h"
 #include "power_manager.h"
+#include "ota_manager.h"
 
 // Global component instances
 EPD_GDEB0709E01 epd;
 CaptivePortal portal;
 StreamClient streamClient(epd);
 PowerManager powerManager;
+OtaManager otaManager;
 
 void setup() {
   Serial.begin(115200);
@@ -83,6 +85,12 @@ void loop() {
 
   // 5. Bail out to the Captive Portal if no Wi-Fi/server configuration has been saved yet
   if (!hasWifiConfig) {
+    if (otaManager.isPendingVerify()) {
+      log_e("[MAIN] Newly flashed OTA firmware failed to load NVS Wi-Fi config! Rolling back...");
+      epd.powerSleep();
+      otaManager.rollbackAndReboot();
+      return;
+    }
     log_w("[MAIN] No Wi-Fi credentials found. Displaying Cuadro Setup screen and launching Captive Portal...");
     epd.displaySetupScreen(WIFI_AP_SSID, WIFI_AP_IP, config.frameOrientation);
     epd.powerSleep();
@@ -100,8 +108,14 @@ void loop() {
   while (WiFi.status() != WL_CONNECTED) {
     delay(250);
     if (millis() - wifiStart > WIFI_CONNECT_TIMEOUT_MS) {
-      log_e("[MAIN] Wi-Fi connection timed out (20s). Falling back to Captive Portal...");
       WiFi.disconnect(true);
+      if (otaManager.isPendingVerify()) {
+        log_e("[MAIN] Newly flashed OTA firmware failed to connect to Wi-Fi! Rolling back to previous partition...");
+        epd.powerSleep();
+        otaManager.rollbackAndReboot();
+        return;
+      }
+      log_e("[MAIN] Wi-Fi connection timed out (20s). Falling back to Captive Portal...");
       epd.displaySetupScreen(WIFI_AP_SSID, WIFI_AP_IP, config.frameOrientation);
       epd.powerSleep();
       portal.runPortal(CAPTIVE_PORTAL_TIMEOUT_MS);
@@ -112,12 +126,19 @@ void loop() {
 
   log_i("[MAIN] Wi-Fi connected! IP: %s, RSSI: %d dBm", WiFi.localIP().toString().c_str(), WiFi.RSSI());
 
+  // 6b. Confirm running slot validity if booted from a newly flashed OTA update
+  if (otaManager.confirmRunningFirmwareValid()) {
+    otaManager.reportStatus(config.serverUrl, config.frameToken, FIRMWARE_VERSION, "SUCCESS", "", batteryVoltage, config.caCert);
+  }
+
   // 7. Fetch, stream, and refresh the next image payload
   StreamResult result = streamClient.fetchAndStreamFrame(config.serverUrl, config.frameToken, batteryVoltage, config.caCert);
 
   if (result.success) {
-    log_i("[MAIN] Frame refreshed successfully in %u ms.", result.durationMs);
-    streamClient.acknowledgeSuccess(config.serverUrl, config.frameToken, result.imageId, result.durationMs, batteryVoltage, config.caCert);
+    if (result.imageId.length() > 0) {
+      log_i("[MAIN] Frame refreshed successfully in %u ms.", result.durationMs);
+      streamClient.acknowledgeSuccess(config.serverUrl, config.frameToken, result.imageId, result.durationMs, batteryVoltage, config.caCert);
+    }
 
     // Keep the persisted orientation in sync with whatever the backend is actually
     // using, so the setup screen stays correctly oriented across reboots even before
@@ -130,6 +151,34 @@ void loop() {
     }
   } else {
     log_w("[MAIN] Frame streaming did not complete successfully.");
+  }
+
+  // 7b. Execute Over The Air Firmware Update if signaled by backend
+  if (result.hasOtaUpdate && result.otaUrl.length() > 0) {
+    log_i("[MAIN] Triggering OTA firmware update to version '%s'...", result.otaVersion.c_str());
+    OtaUpdateInfo otaInfo = {
+      result.otaVersion,
+      result.otaUrl,
+      result.otaSha256,
+      result.otaSize
+    };
+
+    otaManager.reportStatus(config.serverUrl, config.frameToken, result.otaVersion, "UPDATING", "", batteryVoltage, config.caCert);
+
+    OtaResultCode otaErr = otaManager.applyUpdate(
+      config.serverUrl,
+      config.frameToken,
+      otaInfo,
+      batteryVoltage,
+      config.caCert,
+      epd
+    );
+
+    if (otaErr != OTA_SUCCESS) {
+      String errStr = OtaManager::errorToString(otaErr);
+      log_e("[MAIN] OTA Update failed (%d): %s", (int)otaErr, errStr.c_str());
+      otaManager.reportStatus(config.serverUrl, config.frameToken, result.otaVersion, "FAILED", errStr, batteryVoltage, config.caCert);
+    }
   }
 
   // 8. Put display into low-power sleep

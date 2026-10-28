@@ -10,7 +10,7 @@ StreamResult StreamClient::fetchAndStreamFrame(
   float batteryVoltage,
   const String& caCert
 ) {
-  StreamResult result = { false, DEFAULT_SLEEP_SECONDS, "NORMAL", "", 0, "" };
+  StreamResult result = { false, DEFAULT_SLEEP_SECONDS, "NORMAL", "", 0, "", false, "", "", "", 0 };
 
   String endpoint = serverUrl + "/api/v1/frame/next";
   log_i("[STREAM] Connecting to endpoint: %s", endpoint.c_str());
@@ -34,10 +34,13 @@ StreamResult StreamClient::fetchAndStreamFrame(
   http.addHeader("Authorization", "Bearer " + token);
   http.addHeader("X-Frame-ID", WiFi.macAddress());
   http.addHeader("X-Battery-Voltage", String(batteryVoltage, 2));
-  http.addHeader("X-Firmware-Version", "1.0.0");
+  http.addHeader("X-Firmware-Version", FIRMWARE_VERSION);
 
-  const char* headerKeys[] = { "X-Sleep-Seconds", "X-Frame-Mode", "X-Image-ID", "X-Frame-Orientation", "Content-Length" };
-  http.collectHeaders(headerKeys, 5);
+  const char* headerKeys[] = {
+    "X-Sleep-Seconds", "X-Frame-Mode", "X-Image-ID", "X-Frame-Orientation", "Content-Length",
+    "X-OTA-Available", "X-OTA-Version", "X-OTA-Url", "X-OTA-SHA256", "X-OTA-Size"
+  };
+  http.collectHeaders(headerKeys, 10);
 
   uint32_t startTime = millis();
   int httpCode = http.GET();
@@ -60,6 +63,26 @@ StreamResult StreamClient::fetchAndStreamFrame(
   }
   if (http.hasHeader("X-Frame-Orientation")) {
     result.frameOrientation = http.header("X-Frame-Orientation");
+  }
+
+  // Check for OTA update announcement from backend
+  if (http.hasHeader("X-OTA-Available") && http.header("X-OTA-Available") == "1") {
+    result.hasOtaUpdate = true;
+    if (http.hasHeader("X-OTA-Version")) result.otaVersion = http.header("X-OTA-Version");
+    if (http.hasHeader("X-OTA-Url")) result.otaUrl = http.header("X-OTA-Url");
+    if (http.hasHeader("X-OTA-SHA256")) result.otaSha256 = http.header("X-OTA-SHA256");
+    if (http.hasHeader("X-OTA-Size")) result.otaSize = (size_t)http.header("X-OTA-Size").toInt();
+
+    log_i("[STREAM] OTA Update available from backend! Version: %s, URL: %s",
+          result.otaVersion.c_str(), result.otaUrl.c_str());
+  }
+
+  // If backend directed an immediate express OTA update, bypass 960KB image download
+  if (result.frameMode == "OTA_UPDATE") {
+    log_i("[STREAM] Mode is OTA_UPDATE. Bypassing image download to proceed with OTA flash.");
+    http.end();
+    result.success = true;
+    return result;
   }
 
   int contentLength = http.getSize();
@@ -87,7 +110,7 @@ StreamResult StreamClient::fetchAndStreamFrame(
   size_t totalBytesRead = 0;
   uint32_t readTimeoutStart = millis();
 
-  while (http.connected() && (totalBytesRead < EPD_TOTAL_PAYLOAD)) {
+  while ((http.connected() || stream->available() > 0) && (totalBytesRead < EPD_TOTAL_PAYLOAD)) {
     size_t available = stream->available();
     if (available == 0) {
       if (millis() - readTimeoutStart > 10000) {

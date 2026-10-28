@@ -1,9 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { Router, Request, Response } from "express";
 import { requireFrameAuth } from "./middleware.js";
 import { getNextPhoto, isFrameStorageModeEnabled, PhotoRecord } from "../services/queue.js";
-import { evaluateFrameWatchdog, recordFrameActivity, recordNextExpectedRefresh, recordCurrentImage } from "../services/watchdog.js";
+import { evaluateFrameWatchdog, recordFrameActivity, recordNextExpectedRefresh, recordCurrentImage, recordOtaStatus } from "../services/watchdog.js";
 import { generatePureWhiteBuffer, generateTestColorBars, BUFFER_SIZE_BYTES, writeFrameBinary } from "../pipeline/packer.js";
 import { processImageToFrameBuffer, flattenEpdConfig, ProcessOptions } from "../pipeline/processor.js";
 import { ensurePhotoDownloaded } from "../services/sync-scheduler.js";
@@ -31,8 +32,8 @@ frameRouter.get("/next", async (req: Request, res: Response) => {
   // / `fit_mode` / `epdoptimize_config` on the `frames` row, when set, take precedence over
   // the global `config` singleton for this specific frame.
   const db = getDb();
-  const frameRow = db.prepare("SELECT frame_orientation, fit_mode, epdoptimize_config FROM frames WHERE id = ?").get(frameId) as
-    | { frame_orientation?: string | null; fit_mode?: string | null; epdoptimize_config?: string | null }
+  const frameRow = db.prepare("SELECT frame_orientation, fit_mode, epdoptimize_config, target_firmware_version, ota_status FROM frames WHERE id = ?").get(frameId) as
+    | { frame_orientation?: string | null; fit_mode?: string | null; epdoptimize_config?: string | null; target_firmware_version?: string | null; ota_status?: string | null }
     | undefined;
   const effectiveFitMode: "matting" | "cover" | "rotate" = (frameRow?.fit_mode as any) || config.fitMode;
   let frameEpdOverride: ProcessOptions = {};
@@ -57,6 +58,50 @@ frameRouter.get("/next", async (req: Request, res: Response) => {
     res.setHeader("Content-Length", whiteBuffer.length);
     res.send(whiteBuffer);
     return;
+  }
+
+  // 1b. Check for OTA firmware update eligibility (frame-specific target or fleet-wide active release).
+  // Runs BEFORE getNextPhoto(frameId) so an express OTA update does not consume a queue item or
+  // trigger a redundant 960KB photo download + 18s e-paper refresh right before rebooting.
+  let targetRelease: { version: string; file_path: string; sha256: string; size_bytes: number } | undefined;
+  if (frameRow?.target_firmware_version) {
+    targetRelease = db.prepare("SELECT version, file_path, sha256, size_bytes FROM firmware_releases WHERE version = ?").get(frameRow.target_firmware_version) as any;
+  }
+  if (!targetRelease) {
+    targetRelease = db.prepare("SELECT version, file_path, sha256, size_bytes FROM firmware_releases WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1").get() as any;
+  }
+
+  if (targetRelease && firmwareVersion) {
+    if (firmwareVersion === targetRelease.version) {
+      // Frame is already running the target version; mark OTA status as success if it was pending/updating/flashed.
+      if (frameRow?.ota_status && frameRow.ota_status !== "success" && frameRow.ota_status !== "idle") {
+        recordOtaStatus(frameId, targetRelease.version, "success");
+      }
+    } else if (fs.existsSync(targetRelease.file_path)) {
+      if (frameRow?.ota_status === "flashed") {
+        // The frame already flashed targetRelease.version and rebooted on the previous cycle,
+        // yet it just checked in still reporting firmwareVersion != targetRelease.version!
+        // Either the ESP32 bootloader rolled back to the previous slot, or the uploaded .bin
+        // had a different FIRMWARE_VERSION compiled in. Mark as failed to prevent an infinite flash loop.
+        const msg = `Rollback or version mismatch: device reported v${firmwareVersion} after flashing v${targetRelease.version}`;
+        console.warn(`[OTA] Frame ${frameId}: ${msg}`);
+        recordOtaStatus(frameId, targetRelease.version, "failed", msg);
+      } else if (frameRow?.ota_status !== "failed") {
+        console.log(`[OTA] Dispatching OTA update v${targetRelease.version} to frame ${frameId} (currently v${firmwareVersion}).`);
+        recordNextExpectedRefresh(frameId, watchdog.recommendedSleepSeconds);
+        res.setHeader("X-Frame-Mode", "OTA_UPDATE");
+        res.setHeader("X-Sleep-Seconds", watchdog.recommendedSleepSeconds.toString());
+        res.setHeader("X-OTA-Available", "1");
+        res.setHeader("X-OTA-Version", targetRelease.version);
+        res.setHeader("X-OTA-Url", `/api/v1/frame/ota/bin?version=${encodeURIComponent(targetRelease.version)}`);
+        res.setHeader("X-OTA-SHA256", targetRelease.sha256);
+        res.setHeader("X-OTA-Size", targetRelease.size_bytes.toString());
+        res.setHeader("Content-Type", "application/octet-stream");
+        res.setHeader("Content-Length", "0");
+        res.status(200).end();
+        return;
+      }
+    }
   }
 
   // 2. Fetch next photo from priority queue / idle shuffle
@@ -84,20 +129,18 @@ frameRouter.get("/next", async (req: Request, res: Response) => {
         ? rawReqOrient as any
         : (frameRow?.frame_orientation as any) || config.frameOrientation;
 
+    const epdSuffix = frameRow?.epdoptimize_config
+      ? `_${crypto.createHash("sha256").update(frameRow.epdoptimize_config).digest("hex").slice(0, 8)}`
+      : "";
     const targetBinPath = path.join(
       config.cacheDir,
-      `${photo.id}_${requestedOrientation}_${effectiveFitMode}.bin`
+      `${photo.id}_${requestedOrientation}_${effectiveFitMode}${epdSuffix}.bin`
     );
 
     let activeBinPath = targetBinPath;
-    if (!fs.existsSync(activeBinPath)) {
-      if (fs.existsSync(photo.bin_path)) {
-        activeBinPath = photo.bin_path;
-      }
-    }
 
-    // If matching binary is missing, dynamically render from original photo
-    if (!fs.existsSync(activeBinPath) && fs.existsSync(photo.file_path)) {
+    // If matching binary for this orientation/fitMode/epdConfig is missing, dynamically render from original photo
+    if (!fs.existsSync(activeBinPath) && photo.file_path && fs.existsSync(photo.file_path)) {
       console.log(
         `[FRAME] Dynamically rendering ${photo.id} for ${requestedOrientation} (${effectiveFitMode})...`
       );
@@ -115,6 +158,11 @@ frameRouter.get("/next", async (req: Request, res: Response) => {
       }
     }
 
+    // Fall back to default pre-rendered binary only if targetBinPath still doesn't exist
+    if (!fs.existsSync(activeBinPath) && photo.bin_path && fs.existsSync(photo.bin_path)) {
+      activeBinPath = photo.bin_path;
+    }
+
     if (fs.existsSync(activeBinPath)) {
       console.log(`[FRAME] Serving photo ${photo.id} (${requestedOrientation}) to frame ${frameId}.`);
       recordNextExpectedRefresh(frameId, watchdog.recommendedSleepSeconds);
@@ -126,6 +174,15 @@ frameRouter.get("/next", async (req: Request, res: Response) => {
       res.setHeader("Content-Length", BUFFER_SIZE_BYTES);
 
       const stream = fs.createReadStream(activeBinPath);
+      stream.on("error", (err) => {
+        console.error(`[FRAME] Error streaming binary ${activeBinPath}:`, err);
+        if (!res.headersSent) {
+          res.status(500).end();
+        } else {
+          res.destroy();
+        }
+      });
+      res.on("close", () => stream.destroy());
       stream.pipe(res);
       return;
     }
@@ -180,4 +237,61 @@ frameRouter.get("/white", (req: Request, res: Response) => {
   res.setHeader("Content-Type", "application/octet-stream");
   res.setHeader("Content-Length", whiteBuffer.length);
   res.send(whiteBuffer);
+});
+
+/**
+ * GET /api/v1/frame/ota/bin
+ * Streams the requested (or currently active) firmware binary to the frame.
+ */
+frameRouter.get("/ota/bin", (req: Request, res: Response) => {
+  const version = typeof req.query.version === "string" ? req.query.version : undefined;
+  const db = getDb();
+  let release: { version: string; file_path: string; sha256: string; size_bytes: number } | undefined;
+
+  if (version) {
+    release = db.prepare("SELECT version, file_path, sha256, size_bytes FROM firmware_releases WHERE version = ?").get(version) as any;
+  } else {
+    release = db.prepare("SELECT version, file_path, sha256, size_bytes FROM firmware_releases WHERE is_active = 1 ORDER BY created_at DESC LIMIT 1").get() as any;
+  }
+
+  if (!release || !fs.existsSync(release.file_path)) {
+    res.status(404).json({ error: "Firmware binary not found on server." });
+    return;
+  }
+
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Length", release.size_bytes.toString());
+  res.setHeader("X-Firmware-SHA256", release.sha256);
+  res.setHeader("X-Firmware-Version", release.version);
+
+  const stream = fs.createReadStream(release.file_path);
+  stream.on("error", (err) => {
+    console.error(`[OTA] Error streaming firmware binary ${release?.file_path}:`, err);
+    if (!res.headersSent) {
+      res.status(500).end();
+    } else {
+      res.destroy();
+    }
+  });
+  res.on("close", () => stream.destroy());
+  stream.pipe(res);
+});
+
+/**
+ * POST /api/v1/frame/ota/status
+ * Telemetry endpoint for the frame to report download, flash, and boot progress/results.
+ */
+frameRouter.post("/ota/status", (req: Request, res: Response) => {
+  const frameId = (req.headers["x-frame-id"] as string) || req.ip || "unknown-frame";
+  const { version, status, error } = req.body || {};
+
+  if (!version || !status) {
+    res.status(400).json({ error: "version and status are required fields." });
+    return;
+  }
+
+  recordOtaStatus(frameId, String(version), String(status), error ? String(error) : undefined);
+  console.log(`[OTA-TELEMETRY] Frame ${frameId} reported: ${status} (v${version})${error ? ` - Error: ${error}` : ""}`);
+
+  res.json({ status: "success" });
 });

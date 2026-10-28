@@ -163,7 +163,7 @@ export class ICloudAdapter implements AlbumAdapter {
     }
 
     const assetData = (await urlRes.json()) as {
-      items?: Record<string, { url_path: string }>;
+      items?: Record<string, { url_path: string; url_location?: string }>;
       locations?: Record<string, { hosts: string[]; scheme: string }>;
     };
 
@@ -173,17 +173,23 @@ export class ICloudAdapter implements AlbumAdapter {
       const createdAt = new Date(p.dateCreated);
       if (since && createdAt <= since) continue;
 
-      // Select highest resolution derivative
+      // Select highest resolution derivative by numeric fileSize or dimension key
       const derivatives = p.derivatives || {};
-      const highestResKey = Object.keys(derivatives).sort().pop();
+      const sortedDerivativeKeys = Object.keys(derivatives).sort((a, b) => {
+        const sizeA = Number(derivatives[a]?.fileSize) || Number(a) || 0;
+        const sizeB = Number(derivatives[b]?.fileSize) || Number(b) || 0;
+        return sizeA - sizeB;
+      });
+      const highestResKey = sortedDerivativeKeys[sortedDerivativeKeys.length - 1];
       if (!highestResKey) continue;
 
       const checksum = derivatives[highestResKey].checksum;
       const item = assetData.items?.[checksum];
       if (!item) continue;
 
-      // Pick the first available CDN location host
-      const locationKey = Object.keys(assetData.locations || {})[0];
+      // Pick the asset's designated CDN location host (or fall back to the first available)
+      const defaultLocKey = Object.keys(assetData.locations || {})[0];
+      const locationKey = (item.url_location && assetData.locations?.[item.url_location]) ? item.url_location : defaultLocKey;
       const location = assetData.locations?.[locationKey];
       if (!location || !location.hosts || location.hosts.length === 0) continue;
 
@@ -194,13 +200,16 @@ export class ICloudAdapter implements AlbumAdapter {
       // Smallest available derivative, if there's more than one size - a cheap preview for
       // the admin Library gallery without downloading the full-resolution original.
       let previewUrl: string | undefined;
-      const derivativeKeys = Object.keys(derivatives).sort();
-      const smallestResKey = derivativeKeys[0];
+      const smallestResKey = sortedDerivativeKeys[0];
       if (smallestResKey && smallestResKey !== highestResKey) {
         const smallChecksum = derivatives[smallestResKey].checksum;
         const smallItem = assetData.items?.[smallChecksum];
         if (smallItem) {
-          previewUrl = `${scheme}://${assetHost}${smallItem.url_path}`;
+          const smallLocKey = (smallItem.url_location && assetData.locations?.[smallItem.url_location]) ? smallItem.url_location : locationKey;
+          const smallLoc = assetData.locations?.[smallLocKey] || location;
+          const smallHost = smallLoc.hosts?.[0] || assetHost;
+          const smallScheme = smallLoc.scheme || scheme;
+          previewUrl = `${smallScheme}://${smallHost}${smallItem.url_path}`;
         }
       }
 

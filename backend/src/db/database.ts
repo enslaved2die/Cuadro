@@ -18,6 +18,9 @@ export function getDb(): DatabaseSync {
   if (!fs.existsSync(config.cacheDir)) {
     fs.mkdirSync(config.cacheDir, { recursive: true });
   }
+  if (!fs.existsSync(config.firmwareDir)) {
+    fs.mkdirSync(config.firmwareDir, { recursive: true });
+  }
 
   dbInstance = new DatabaseSync(config.dbPath);
   dbInstance.exec("PRAGMA journal_mode = WAL;");
@@ -140,6 +143,17 @@ export function initSchema(db: DatabaseSync) {
       PRIMARY KEY (frame_id, album_source_id)
     );
 
+    CREATE TABLE IF NOT EXISTS firmware_releases (
+      version TEXT PRIMARY KEY,
+      filename TEXT NOT NULL,
+      file_path TEXT NOT NULL,
+      sha256 TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      release_notes TEXT,
+      is_active INTEGER DEFAULT 0,
+      created_at INTEGER NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_photos_uploaded_at ON photos(uploaded_at);
     CREATE INDEX IF NOT EXISTS idx_photos_last_shown ON photos(last_shown_at);
     CREATE INDEX IF NOT EXISTS idx_queue_pending ON queue(status, priority DESC, scheduled_at ASC);
@@ -190,6 +204,26 @@ export function initSchema(db: DatabaseSync) {
   }
   try {
     db.exec("ALTER TABLE frames ADD COLUMN refresh_schedule TEXT;");
+  } catch (e) {
+    // Column already exists
+  }
+  try {
+    db.exec("ALTER TABLE frames ADD COLUMN target_firmware_version TEXT;");
+  } catch (e) {
+    // Column already exists
+  }
+  try {
+    db.exec("ALTER TABLE frames ADD COLUMN ota_status TEXT;");
+  } catch (e) {
+    // Column already exists
+  }
+  try {
+    db.exec("ALTER TABLE frames ADD COLUMN ota_error TEXT;");
+  } catch (e) {
+    // Column already exists
+  }
+  try {
+    db.exec("ALTER TABLE frames ADD COLUMN ota_attempted_at INTEGER;");
   } catch (e) {
     // Column already exists
   }

@@ -52,6 +52,13 @@
 #define CAPTIVE_PORTAL_TIMEOUT_MS 300000  // 5 minutes AP mode before sleep
 #define DEFAULT_SLEEP_SECONDS     14400   // 4 hours default sleep
 
+// Firmware Version & OTA Configuration
+#define FIRMWARE_VERSION          "1.1.0"
+// Set > 0.0f (e.g. 3.6f) only on hardware with a populated LiPo divider on BATTERY_ADC_PIN.
+// Leave at 0.0f on mains/USB-powered boards where readBatteryVoltage() returns the 3.30V fallback.
+#define OTA_MIN_BATTERY_VOLTAGE   0.0f
+#define OTA_STREAM_BUFFER_SIZE    4096   // 4KB streaming chunk buffer for flash writes
+
 // Setup Wi-Fi SoftAP branding (shown in Wi-Fi picker and on the panel's setup screen)
 #define WIFI_AP_SSID       "Cuadro-Setup"
 #define WIFI_AP_IP         "192.168.4.1"

@@ -111,8 +111,9 @@ export class GooglePhotosAdapter implements AlbumAdapter {
         // small default preview or a bounded/cropped size variant.
         const downloadUrl = `https://lh3.googleusercontent.com/pw/${photoKey}=d`;
 
+        const keyHash = crypto.createHash("sha256").update(photoKey).digest("hex").slice(0, 24);
         photos.push({
-          id: `gphoto_${photoKey.slice(0, 24)}`,
+          id: `gphoto_${keyHash}`,
           source: "google_photos",
           sourceId: photoKey,
           originalUrl: downloadUrl,

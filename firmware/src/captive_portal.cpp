@@ -89,16 +89,24 @@ void CaptivePortal::handleRoot() {
     <h2>🖼️ Cuadro Wi-Fi Setup</h2>
     <form action="/save" method="POST">
       <label>Wi-Fi Network (SSID)</label>
-      <input type="text" name="ssid" value=")rawliteral" + current.wifiSsid + R"rawliteral(" required>
+      <input type="text" name="ssid" value=")rawliteral" + htmlEscape(current.wifiSsid) + R"rawliteral(" required>
 
       <label>Wi-Fi Password</label>
-      <input type="password" name="pass" value=")rawliteral" + current.wifiPassword + R"rawliteral(">
+      <input type="password" name="pass" value=")rawliteral" + htmlEscape(current.wifiPassword) + R"rawliteral(">
 
       <label>Backend Server URL</label>
-      <input type="text" name="server" value=")rawliteral" + current.serverUrl + R"rawliteral(" required>
+      <input type="text" name="server" value=")rawliteral" + htmlEscape(current.serverUrl) + R"rawliteral(" required>
 
       <label>Frame Security Token</label>
-      <input type="text" name="token" value=")rawliteral" + current.frameToken + R"rawliteral(" required>
+      <input type="text" name="token" value=")rawliteral" + htmlEscape(current.frameToken) + R"rawliteral(" required>
+
+      <label>Frame Orientation</label>
+      <select name="orient" style="width: 100%; box-sizing: border-box; padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 6px; margin-top: 0.25rem; font-size: 1rem; background: #fff;">
+        <option value="portrait_180")rawliteral" + (current.frameOrientation == "portrait_180" ? " selected" : "") + R"rawliteral(>Portrait (Ribbon Cable Top - Default)</option>
+        <option value="portrait")rawliteral" + (current.frameOrientation == "portrait" ? " selected" : "") + R"rawliteral(>Portrait (Ribbon Cable Bottom)</option>
+        <option value="landscape")rawliteral" + (current.frameOrientation == "landscape" ? " selected" : "") + R"rawliteral(>Landscape (Ribbon Cable Left)</option>
+        <option value="landscape_270")rawliteral" + (current.frameOrientation == "landscape_270" ? " selected" : "") + R"rawliteral(>Landscape (Ribbon Cable Right)</option>
+      </select>
 
       <details)rawliteral" + String(current.caCert.length() > 0 ? " open" : "") + R"rawliteral(>
         <summary>Advanced: Custom CA Certificate (optional)</summary>
@@ -120,10 +128,14 @@ void CaptivePortal::handleRoot() {
 
 void CaptivePortal::handleSave() {
   DeviceConfig cfg;
+  loadConfig(cfg); // Preserve existing settings
   cfg.wifiSsid = server.arg("ssid");
   cfg.wifiPassword = server.arg("pass");
   cfg.serverUrl = server.arg("server");
   cfg.frameToken = server.arg("token");
+  if (server.hasArg("orient") && server.arg("orient").length() > 0) {
+    cfg.frameOrientation = server.arg("orient");
+  }
   cfg.caCert = server.arg("cacert");
   cfg.caCert.trim();
   cfg.sleepSeconds = DEFAULT_SLEEP_SECONDS;

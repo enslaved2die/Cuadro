@@ -152,3 +152,30 @@ export function recordFrameActivity(
     }
   }
 }
+
+/**
+ * Records frame OTA progress and telemetry reports.
+ */
+export function recordOtaStatus(
+  frameId: string,
+  version: string,
+  status: string,
+  error?: string
+): void {
+  const db = getDb();
+  const now = Date.now();
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "success") {
+    db.prepare(`
+      UPDATE frames
+      SET firmware_version = ?, ota_status = 'success', ota_error = NULL, ota_attempted_at = ?
+      WHERE id = ?
+    `).run(version, now, frameId);
+  } else {
+    db.prepare(`
+      UPDATE frames
+      SET ota_status = ?, ota_error = ?, ota_attempted_at = ?
+      WHERE id = ?
+    `).run(normalized, error || null, now, frameId);
+  }
+}

@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import { Router, Request, Response } from "express";
 import { requireAdminAuth } from "./middleware.js";
 import { getDb } from "../db/database.js";
+import { config } from "../config.js";
+import { purgeCachedBinariesSync } from "../pipeline/packer.js";
 import { GooglePhotosSourceConfig } from "../adapters/google-photos.js";
 import { ImmichSourceConfig } from "../adapters/immich.js";
 import { ICloudSourceConfig } from "../adapters/icloud.js";
@@ -446,6 +448,10 @@ albumSourcesRouter.patch("/frames/:id", (req: Request, res: Response) => {
   if (keys.length > 0) {
     const setClause = keys.map((k) => `${k} = ?`).join(", ");
     db.prepare(`UPDATE frames SET ${setClause} WHERE id = ?`).run(...keys.map((k) => updates[k]), frameId);
+
+    if ("frame_orientation" in updates || "fit_mode" in updates || "epdoptimize_config" in updates) {
+      purgeCachedBinariesSync(config.cacheDir);
+    }
   }
 
   const updated = db.prepare("SELECT * FROM frames WHERE id = ?").get(frameId) as any;

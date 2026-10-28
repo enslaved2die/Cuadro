@@ -35,7 +35,27 @@ frameRouter.get("/next", async (req: Request, res: Response) => {
   const frameRow = db.prepare("SELECT frame_orientation, fit_mode, epdoptimize_config, target_firmware_version, ota_status FROM frames WHERE id = ?").get(frameId) as
     | { frame_orientation?: string | null; fit_mode?: string | null; epdoptimize_config?: string | null; target_firmware_version?: string | null; ota_status?: string | null }
     | undefined;
-  const effectiveFitMode: "matting" | "cover" | "rotate" = (frameRow?.fit_mode as any) || config.fitMode;
+
+  const rawReqFitMode = req.headers["x-fit-mode"] as string | undefined;
+  let effectiveFitMode: "matting" | "cover" | "rotate" =
+    rawReqFitMode === "matting" || rawReqFitMode === "cover" || rawReqFitMode === "rotate"
+      ? rawReqFitMode
+      : (frameRow?.fit_mode as any) || config.fitMode;
+
+  // If the built-in Hardware Emulator has no explicit fit_mode override of its own, and the
+  // user configured a custom fit_mode on their physical frame in the Frames tab, mirror it so
+  // the Emulator preview matches their physical frame.
+  if (frameId === "EMULATOR-709E" && !rawReqFitMode && !frameRow?.fit_mode) {
+    const physicalOverrides = db
+      .prepare("SELECT DISTINCT fit_mode FROM frames WHERE id != 'EMULATOR-709E' AND fit_mode IS NOT NULL")
+      .all() as Array<{ fit_mode: string }>;
+    if (physicalOverrides.length === 1) {
+      const m = physicalOverrides[0].fit_mode;
+      if (m === "matting" || m === "cover" || m === "rotate") {
+        effectiveFitMode = m;
+      }
+    }
+  }
   let frameEpdOverride: ProcessOptions = {};
   if (frameRow?.epdoptimize_config) {
     try {
@@ -113,7 +133,7 @@ frameRouter.get("/next", async (req: Request, res: Response) => {
   // (see prewarmUpcomingPhotos). This is the safety net for the rare case that didn't happen
   // in time (e.g. a manual force-refresh landing within seconds of a photo first appearing) -
   // download it live now, at the cost of this one poll taking a couple of extra seconds.
-  if (photo && !photo.downloaded_at) {
+  if (photo && (!photo.downloaded_at || !photo.file_path || !fs.existsSync(photo.file_path))) {
     console.log(`[FRAME] ${photo.id} isn't downloaded yet - fetching it now before responding...`);
     await ensurePhotoDownloaded(photo.id);
     // Re-read the same row directly (NOT getNextPhoto again, which would re-run selection and
@@ -164,12 +184,13 @@ frameRouter.get("/next", async (req: Request, res: Response) => {
     }
 
     if (fs.existsSync(activeBinPath)) {
-      console.log(`[FRAME] Serving photo ${photo.id} (${requestedOrientation}) to frame ${frameId}.`);
+      console.log(`[FRAME] Serving photo ${photo.id} (${requestedOrientation}, fit=${effectiveFitMode}) to frame ${frameId}.`);
       recordNextExpectedRefresh(frameId, watchdog.recommendedSleepSeconds);
       res.setHeader("X-Image-ID", photo.id);
       res.setHeader("X-Sleep-Seconds", watchdog.recommendedSleepSeconds.toString());
       res.setHeader("X-Frame-Mode", watchdog.shouldForceRefresh ? "FORCE_CYCLE" : "NORMAL");
       res.setHeader("X-Frame-Orientation", requestedOrientation);
+      res.setHeader("X-Fit-Mode", effectiveFitMode);
       res.setHeader("Content-Type", "application/octet-stream");
       res.setHeader("Content-Length", BUFFER_SIZE_BYTES);
 

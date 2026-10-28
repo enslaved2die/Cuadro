@@ -430,6 +430,7 @@
 
         const sleepSeconds = parseInt(res.headers.get('X-Sleep-Seconds') || '14400', 10);
         const frameMode = res.headers.get('X-Frame-Mode') || 'NORMAL';
+        const fitMode = res.headers.get('X-Fit-Mode') || 'default';
         const imageId = res.headers.get('X-Image-ID') || 'unknown';
 
         // Handle express OTA update dispatch (0-byte body) without corrupting the canvas
@@ -493,7 +494,7 @@
         }
 
         document.getElementById('imageIdLabel').textContent = imageId.slice(0, 16);
-        log(`[HTTP 200] Mode: ${frameMode}, Sleep: ${sleepSeconds}s, Image: ${imageId}`);
+        log(`[HTTP 200] Mode: ${frameMode}, Fit: ${fitMode}, Sleep: ${sleepSeconds}s, Image: ${imageId}`);
 
         const arrayBuffer = await res.arrayBuffer();
         const fetchDuration = Math.round(performance.now() - start);

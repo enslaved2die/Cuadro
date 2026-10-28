@@ -2,8 +2,11 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { config, reloadConfigFromDb, ADMIN_PASSWORD_ENV_SET } from "../config.js";
+import { purgeCachedBinariesSync } from "../pipeline/packer.js";
 
 const ADMIN_PASSWORD_SETTING_KEY = "admin_password_generated";
+const PIPELINE_CACHE_VERSION_KEY = "pipeline_cache_version";
+const CURRENT_PIPELINE_CACHE_VERSION = "v3_fit_modes_sync";
 
 let dbInstance: DatabaseSync | null = null;
 
@@ -33,12 +36,90 @@ export function getDb(): DatabaseSync {
   initSchema(dbInstance);
   reloadConfigFromDb(dbInstance);
   migrateAlbumSourcesV2(dbInstance);
+  ensurePipelineCacheVersion(dbInstance);
 
   if (!ADMIN_PASSWORD_ENV_SET) {
     ensureGeneratedAdminPassword(dbInstance);
   }
 
   return dbInstance;
+}
+
+function ensurePipelineCacheVersion(db: DatabaseSync) {
+  try {
+    const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(PIPELINE_CACHE_VERSION_KEY) as
+      | { value: string }
+      | undefined;
+    if (row?.value === CURRENT_PIPELINE_CACHE_VERSION) {
+      return;
+    }
+
+    // Clean up redundant per-frame overrides snapshotted by migrateAlbumSourcesV2 so frames
+    // aren't permanently locked out of global Defaults tab changes (Fit Mode / Orientation / etc.).
+    try {
+      // Emulator should always inherit global defaults by default
+      db.prepare(
+        "UPDATE frames SET frame_orientation = NULL, fit_mode = NULL, epdoptimize_config = NULL, refresh_schedule = NULL WHERE id = 'EMULATOR-709E'"
+      ).run();
+
+      const nonEmuFrames = db
+        .prepare("SELECT id, frame_orientation, fit_mode, epdoptimize_config, refresh_schedule FROM frames WHERE id != 'EMULATOR-709E'")
+        .all() as Array<{
+        id: string;
+        frame_orientation: string | null;
+        fit_mode: string | null;
+        epdoptimize_config: string | null;
+        refresh_schedule: string | null;
+      }>;
+
+      // If the user changed global fit_mode in the Defaults tab (e.g. to 'rotate') while frames
+      // still had the old migration snapshot, clear the stale per-frame fit_mode so they inherit.
+      if (nonEmuFrames.length > 0) {
+        const distinctFitModes = new Set(nonEmuFrames.map((f) => f.fit_mode).filter(Boolean));
+        if (distinctFitModes.size === 1) {
+          const onlyFrameFitMode = [...distinctFitModes][0]!;
+          if (onlyFrameFitMode !== config.fitMode) {
+            if (config.fitMode !== "matting") {
+              // User changed Defaults tab away from 'matting' -> let frames inherit the new global fitMode
+              db.prepare("UPDATE frames SET fit_mode = NULL").run();
+            } else {
+              // User customized their single frame's fit_mode in the Frames tab -> sync global fit_mode
+              // so the Defaults tab and Hardware Emulator also reflect their chosen Fit Mode.
+              db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('fit_mode', ?)").run(onlyFrameFitMode);
+              reloadConfigFromDb(db);
+              db.prepare("UPDATE frames SET fit_mode = NULL").run();
+            }
+          }
+        }
+      }
+
+      // Any per-frame column that equals the current global default is redundant with NULL ("Use Default");
+      // resetting it to NULL restores inheritance when the user edits the Defaults tab later.
+      db.prepare("UPDATE frames SET frame_orientation = NULL WHERE frame_orientation = ?").run(config.frameOrientation);
+      db.prepare("UPDATE frames SET fit_mode = NULL WHERE fit_mode = ?").run(config.fitMode);
+      db.prepare("UPDATE frames SET epdoptimize_config = NULL WHERE epdoptimize_config = ?").run(
+        JSON.stringify(config.epdoptimizeConfig)
+      );
+      db.prepare("UPDATE frames SET refresh_schedule = NULL WHERE refresh_schedule = ?").run(
+        JSON.stringify(config.refreshSchedule)
+      );
+    } catch (cleanupErr) {
+      console.warn("[CACHE] Non-fatal error normalizing frame override defaults:", cleanupErr);
+    }
+
+    const removed = purgeCachedBinariesSync(config.cacheDir);
+    if (removed > 0) {
+      console.log(
+        `[CACHE] Purged ${removed} stale pre-rendered .bin file(s) on upgrade to ${CURRENT_PIPELINE_CACHE_VERSION}.`
+      );
+    }
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(
+      PIPELINE_CACHE_VERSION_KEY,
+      CURRENT_PIPELINE_CACHE_VERSION
+    );
+  } catch (err) {
+    console.warn("[CACHE] Failed to run pipeline cache version check:", err);
+  }
 }
 
 // When no ADMIN_PASSWORD is set in the environment, generate a strong random password on

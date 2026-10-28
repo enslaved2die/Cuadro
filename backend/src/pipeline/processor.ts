@@ -164,11 +164,13 @@ export async function processImageToFrameBuffer(
   const frameOrientation = mergedOptions.frameOrientation || config.frameOrientation || "portrait_180";
   const fitMode = mergedOptions.fitMode || config.fitMode || "matting";
 
-  // Load and read metadata with EXIF rotation applied
-  const meta = await sharp(input, { failOnError: false }).metadata();
-  const isExifSwapped = Boolean(meta.orientation && meta.orientation >= 5 && meta.orientation <= 8);
-  const srcW = isExifSwapped ? (meta.height || 1200) : (meta.width || 1200);
-  const srcH = isExifSwapped ? (meta.width || 1600) : (meta.height || 1600);
+  // Decode and normalize EXIF orientation upfront so pixel dimensions and buffer orientation are authoritative
+  const { data: orientedBuffer, info: orientedInfo } = await sharp(input, { failOnError: false })
+    .rotate()
+    .toBuffer({ resolveWithObject: true });
+
+  const srcW = orientedInfo.width || 1200;
+  const srcH = orientedInfo.height || 1600;
   const isSourceLandscape = srcW > srcH;
   const isSourcePortrait = srcH > srcW;
 
@@ -182,12 +184,16 @@ export async function processImageToFrameBuffer(
     (!isFrameLandscape && isSourceLandscape) ||
     (isFrameLandscape && isSourcePortrait);
 
-  let pipeline = sharp(input, { failOnError: false }).rotate();
+  console.log(
+    `[PIPELINE] Fitting image (${srcW}x${srcH} -> ${viewportWidth}x${viewportHeight}): frame=${frameOrientation}, fitMode=${fitMode}, isMismatch=${isMismatch}`
+  );
 
+  let workingBuffer = orientedBuffer;
   if (fitMode === "rotate" && isMismatch) {
-    const autoOrientedBuffer = await pipeline.toBuffer();
-    pipeline = sharp(autoOrientedBuffer).rotate(90);
+    workingBuffer = await sharp(orientedBuffer).rotate(90).toBuffer();
   }
+
+  let pipeline = sharp(workingBuffer);
 
   if (fitMode === "matting") {
     pipeline = pipeline.resize(viewportWidth, viewportHeight, {

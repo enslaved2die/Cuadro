@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 
 export const EPD_WIDTH = 1200;
 export const EPD_HEIGHT = 1600;
@@ -66,4 +67,52 @@ export async function writeFrameBinary(filePath: string, buffer: Buffer): Promis
     );
   }
   await fs.promises.writeFile(filePath, buffer);
+}
+
+/**
+ * Deletes cached rendered .bin files from cacheDir (while preserving *_orig.jpg and *_thumb.jpg)
+ * so that subsequent frame polls or reprocess runs dynamically render fresh binaries instead of
+ * serving stale pre-rendered files.
+ */
+export async function purgeCachedBinaries(cacheDir: string, photoId?: string): Promise<number> {
+  let entries: string[];
+  try {
+    entries = await fs.promises.readdir(cacheDir);
+  } catch {
+    return 0;
+  }
+
+  let removed = 0;
+  for (const entry of entries) {
+    if (!entry.endsWith(".bin")) continue;
+    if (photoId && entry !== `${photoId}.bin` && !entry.startsWith(`${photoId}_`)) continue;
+    try {
+      await fs.promises.rm(path.join(cacheDir, entry), { force: true });
+      removed++;
+    } catch {
+      // Ignore concurrent deletion errors
+    }
+  }
+  return removed;
+}
+
+export function purgeCachedBinariesSync(cacheDir: string): number {
+  let entries: string[];
+  try {
+    entries = fs.readdirSync(cacheDir);
+  } catch {
+    return 0;
+  }
+
+  let removed = 0;
+  for (const entry of entries) {
+    if (!entry.endsWith(".bin")) continue;
+    try {
+      fs.rmSync(path.join(cacheDir, entry), { force: true });
+      removed++;
+    } catch {
+      // Ignore errors
+    }
+  }
+  return removed;
 }

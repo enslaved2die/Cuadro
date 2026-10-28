@@ -6,14 +6,14 @@ import { Router, Request, Response } from "express";
 import { requireAdminAuth } from "./middleware.js";
 import { getDb } from "../db/database.js";
 import { enqueuePhoto, peekNextPhoto } from "../services/queue.js";
-import { syncAlbums, ingestPhoto } from "../services/sync-scheduler.js";
+import { syncAlbums, ingestPhoto, ensurePhotoDownloaded } from "../services/sync-scheduler.js";
 import { config, reloadConfigFromDb, DEFAULT_EPDOPTIMIZE_CONFIG } from "../config.js";
 import { secondsUntilNextScheduledTime } from "../services/schedule.js";
 import { GooglePhotosAdapter } from "../adapters/google-photos.js";
 import { ImmichAdapter } from "../adapters/immich.js";
 import { ICloudAdapter } from "../adapters/icloud.js";
 import { getImageAnalysis, processImageToFrameBuffer } from "../pipeline/processor.js";
-import { writeFrameBinary } from "../pipeline/packer.js";
+import { writeFrameBinary, purgeCachedBinaries, purgeCachedBinariesSync } from "../pipeline/packer.js";
 import { validateEpdoptimizeConfig, validateRefreshSchedule, isValidFrameOrientation, isValidFitMode } from "./validators.js";
 
 export const adminRouter = Router();
@@ -364,12 +364,20 @@ adminRouter.post("/queue/:photoId", (req: Request, res: Response) => {
 adminRouter.post("/reprocess", async (req: Request, res: Response) => {
   try {
     const db = getDb();
+    // Purge all cached .bin variants across all orientations, fitModes, and per-frame epdConfigs
+    await purgeCachedBinaries(config.cacheDir);
+
     const photos = db.prepare("SELECT * FROM photos WHERE is_active = 1").all() as any[];
     console.log(`[ADMIN REPROCESS] Reprocessing ${photos.length} photos with ${config.frameOrientation} (${config.fitMode})...`);
 
     let count = 0;
-    for (const photo of photos) {
-      if (!fs.existsSync(photo.file_path)) continue;
+    for (let photo of photos) {
+      if ((!photo.file_path || !fs.existsSync(photo.file_path)) && photo.original_url) {
+        await ensurePhotoDownloaded(photo.id).catch(() => {});
+        const refreshed = db.prepare("SELECT * FROM photos WHERE id = ?").get(photo.id) as any;
+        if (refreshed) photo = refreshed;
+      }
+      if (!photo.file_path || !fs.existsSync(photo.file_path)) continue;
       try {
         const raw = await fs.promises.readFile(photo.file_path);
         const analysis = await getImageAnalysis(raw);
@@ -387,11 +395,12 @@ adminRouter.post("/reprocess", async (req: Request, res: Response) => {
         await writeFrameBinary(targetBin, binBuf);
         await writeFrameBinary(path.join(config.cacheDir, `${photo.id}.bin`), binBuf);
 
-        // Update database with true dimensions and orientation
-        db.prepare("UPDATE photos SET width = ?, height = ?, orientation = ? WHERE id = ?").run(
+        // Update database with true dimensions, orientation, and new bin_path
+        db.prepare("UPDATE photos SET width = ?, height = ?, orientation = ?, bin_path = ? WHERE id = ?").run(
           analysis.width,
           analysis.height,
           analysis.orientation,
+          targetBin,
           photo.id
         );
         count++;
@@ -454,12 +463,22 @@ adminRouter.post("/settings", (req: Request, res: Response) => {
 
   const { frameOrientation, fitMode, epdoptimizeConfig, refreshSchedule, googlePhotos, immich, icloud } = req.body || {};
 
+  const prevOrientation = config.frameOrientation;
+  const prevFitMode = config.fitMode;
+  let shouldPurgeBins = false;
+
   if (isValidFrameOrientation(frameOrientation)) {
     upsertSetting.run("frame_orientation", frameOrientation);
+    db.prepare("UPDATE frames SET frame_orientation = NULL WHERE frame_orientation = ? OR id = 'EMULATOR-709E'").run(
+      prevOrientation
+    );
+    shouldPurgeBins = true;
   }
 
   if (isValidFitMode(fitMode)) {
     upsertSetting.run("fit_mode", fitMode);
+    db.prepare("UPDATE frames SET fit_mode = NULL WHERE fit_mode = ? OR id = 'EMULATOR-709E'").run(prevFitMode);
+    shouldPurgeBins = true;
   }
 
   if (epdoptimizeConfig !== undefined) {
@@ -469,6 +488,11 @@ adminRouter.post("/settings", (req: Request, res: Response) => {
       return;
     }
     upsertSetting.run("epdoptimize_config", JSON.stringify(value));
+    shouldPurgeBins = true;
+  }
+
+  if (shouldPurgeBins) {
+    purgeCachedBinariesSync(config.cacheDir);
   }
 
   if (refreshSchedule !== undefined) {

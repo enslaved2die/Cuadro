@@ -99,3 +99,37 @@ test("Orientation: Smartphone EXIF orientation tags (5-8) are correctly detected
   });
   assert.equal(bin.length, BUFFER_SIZE_BYTES);
 });
+
+test("Orientation: fitMode 'rotate' rotates 4:3 landscape 90° CW into 3:4 portrait without cropping left/right bands", async () => {
+  // Visual 1600x1200 landscape image:
+  // Left 400px = Black (#000000 -> 0x0), Middle 800px = Blue (#194b9b -> 0x5), Right 400px = White (#ffffff -> 0x1)
+  const bandsSvg = `<svg width="1600" height="1200" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="400" height="1200" fill="#000000"/>
+    <rect x="400" y="0" width="800" height="1200" fill="#194b9b"/>
+    <rect x="1200" y="0" width="400" height="1200" fill="#ffffff"/>
+  </svg>`;
+  const landscapePng = await sharp(Buffer.from(bandsSvg)).png().toBuffer();
+
+  // Also create an EXIF-orientation-6 version (raw 1200x1600 rotated 270 CW so orientation=6 makes it visually 1600x1200)
+  const exif6Jpeg = await sharp(landscapePng).rotate(270).withMetadata({ orientation: 6 }).jpeg({ quality: 100 }).toBuffer();
+
+  for (const [label, inputBuf] of [
+    ["standard 1600x1200", landscapePng],
+    ["EXIF orientation=6 1600x1200", exif6Jpeg]
+  ] as const) {
+    const rotateBin = await processImageToFrameBuffer(inputBuf, {
+      frameOrientation: "portrait",
+      fitMode: "rotate"
+    });
+    assert.equal(rotateBin.length, BUFFER_SIZE_BYTES);
+
+    const rowBytes = 600;
+    // After 90° CW rotation:
+    // - Left band (Black, 0x00) is at top (row 100, col 300)
+    // - Middle band (Blue, 0x55) is at center (row 800, col 300)
+    // - Right band (White, 0x11) is at bottom (row 1500, col 300)
+    assert.equal(rotateBin[100 * rowBytes + 300], 0x00, `${label}: top of rotated frame should be Black (left band)`);
+    assert.equal(rotateBin[800 * rowBytes + 300], 0x55, `${label}: center of rotated frame should be Blue (center band)`);
+    assert.equal(rotateBin[1500 * rowBytes + 300], 0x11, `${label}: bottom of rotated frame should be White (right band)`);
+  }
+});

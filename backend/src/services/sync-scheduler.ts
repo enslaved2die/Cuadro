@@ -129,7 +129,7 @@ export async function ensurePhotoDownloaded(photoId: string): Promise<boolean> {
   const db = getDb();
   const row = db.prepare("SELECT * FROM photos WHERE id = ?").get(photoId) as any;
   if (!row) return false;
-  if (row.downloaded_at) return true; // already local
+  if (row.downloaded_at && row.file_path && fs.existsSync(row.file_path)) return true; // already local
 
   const sourceRow = row.album_source_id
     ? (db.prepare("SELECT * FROM album_sources WHERE id = ?").get(row.album_source_id) as AlbumSourceRow | undefined)

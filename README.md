@@ -118,22 +118,7 @@ The frame sits behind residential NAT/firewalls, pulling updates from a self-hos
    - Enter your `ADMIN_PASSWORD`. If left unset, a secure one-time password is auto-generated and printed to the container logs on first startup.
    - Monitor connected frames, trigger manual sync, upload photos, or toggle Storage Mode.
 
-### 2. Home Assistant Add-on Deployment
-
-Cuadro can run directly inside Home Assistant OS or Supervised:
-
-1. Add the `cuadro-ha-app` repository to Home Assistant:
-   - In Home Assistant, navigate to **Settings** → **Add-ons** → **Add-on Store**.
-   - Click the **⋮ (three dots)** menu in the top right → **Repositories**.
-   - Add your add-on repository URL, or place `cuadro-ha-app` into your local `/addons/` folder.
-2. Find **Cuadro** in the store and click **Install**.
-3. In the add-on **Configuration** tab:
-   - Set a strong `frame_token` (matches the token configured on your physical frames).
-   - Configure your photo sources (**Immich**, **Google Photos**, or **iCloud**).
-4. Start the add-on and open the Web UI on port `7890`.
-5. **Updating**: When new backend commits are pushed to `main`, simply go to the add-on page and click **Rebuild** (or click **Update** if updating from a versioned repository).
-
-### 3. Initial Firmware Flashing (USB)
+### 2. Initial Firmware Flashing (USB)
 
 Initial flashing requires a USB connection to provision the dual OTA partition table and bootloader:
 
@@ -145,7 +130,7 @@ Initial flashing requires a USB connection to provision the dual OTA partition t
    pio device monitor
    ```
 
-### 4. Over-The-Air (OTA) Updates via Admin Dashboard
+### 3. Over-The-Air (OTA) Updates via Admin Dashboard
 
 Once v1.1.0+ is running on your frames, all subsequent firmware updates can be deployed wirelessly:
 
@@ -166,7 +151,7 @@ Once v1.1.0+ is running on your frames, all subsequent firmware updates can be d
    - Incremental mbedtls SHA-256 verification validates binary integrity before committing to flash.
    - If the new firmware fails to boot or cannot connect to Wi-Fi, the ESP32 bootloader automatically cancels rollback and reboots back into the previous working slot.
 
-### 5. Wi-Fi Provisioning (Captive Portal)
+### 4. Wi-Fi Provisioning (Captive Portal)
 
 - On first boot (or whenever the physical **SW3 button** on GPIO 13 is held for 1.5s):
   1. The frame broadcasts a Wi-Fi hotspot named: `Cuadro-Setup`.

@@ -70,9 +70,10 @@ export interface ImageAnalysis {
  * Inspects image metadata after applying EXIF rotation.
  */
 export async function getImageAnalysis(input: string | Buffer): Promise<ImageAnalysis> {
-  const meta = await sharp(input, { failOnError: false }).rotate().metadata();
-  const width = meta.width || 1200;
-  const height = meta.height || 1600;
+  const meta = await sharp(input, { failOnError: false }).metadata();
+  const isExifSwapped = Boolean(meta.orientation && meta.orientation >= 5 && meta.orientation <= 8);
+  const width = isExifSwapped ? (meta.height || 1200) : (meta.width || 1200);
+  const height = isExifSwapped ? (meta.width || 1600) : (meta.height || 1600);
   const aspectRatio = Number((width / height).toFixed(3));
   const orientation = width === height ? "square" : width > height ? "landscape" : "portrait";
   return { width, height, orientation, aspectRatio };
@@ -164,11 +165,10 @@ export async function processImageToFrameBuffer(
   const fitMode = mergedOptions.fitMode || config.fitMode || "matting";
 
   // Load and read metadata with EXIF rotation applied
-  let pipeline = sharp(input, { failOnError: false }).rotate();
-  const meta = await pipeline.metadata();
-
-  const srcW = meta.width || 1200;
-  const srcH = meta.height || 1600;
+  const meta = await sharp(input, { failOnError: false }).metadata();
+  const isExifSwapped = Boolean(meta.orientation && meta.orientation >= 5 && meta.orientation <= 8);
+  const srcW = isExifSwapped ? (meta.height || 1200) : (meta.width || 1200);
+  const srcH = isExifSwapped ? (meta.width || 1600) : (meta.height || 1600);
   const isSourceLandscape = srcW > srcH;
   const isSourcePortrait = srcH > srcW;
 
@@ -182,8 +182,11 @@ export async function processImageToFrameBuffer(
     (!isFrameLandscape && isSourceLandscape) ||
     (isFrameLandscape && isSourcePortrait);
 
+  let pipeline = sharp(input, { failOnError: false }).rotate();
+
   if (fitMode === "rotate" && isMismatch) {
-    pipeline = pipeline.rotate(90);
+    const autoOrientedBuffer = await pipeline.toBuffer();
+    pipeline = sharp(autoOrientedBuffer).rotate(90);
   }
 
   if (fitMode === "matting") {

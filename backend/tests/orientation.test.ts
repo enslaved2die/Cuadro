@@ -78,3 +78,24 @@ test("Orientation: Passe-partout matting produces pure white borders (0x11 nibbl
     }
   }
 });
+
+test("Orientation: Smartphone EXIF orientation tags (5-8) are correctly detected and rotated", async () => {
+  // A smartphone camera sensor is physically vertical: 600 wide x 800 high.
+  // When holding phone in landscape, EXIF orientation 6 (Rotate 90 CW) is stored:
+  // visually this is an 800 wide x 600 high LANDSCAPE photo!
+  const phoneLandscapeImg = await sharp({
+    create: { width: 600, height: 800, channels: 3, background: { r: 100, g: 150, b: 200 } }
+  }).withMetadata({ orientation: 6 }).jpeg().toBuffer();
+
+  const analysis = await getImageAnalysis(phoneLandscapeImg);
+  assert.equal(analysis.orientation, "landscape");
+  assert.equal(analysis.width, 800);
+  assert.equal(analysis.height, 600);
+
+  // In a portrait frame with fitMode 'rotate', this phone landscape photo must be rotated to match
+  const bin = await processImageToFrameBuffer(phoneLandscapeImg, {
+    frameOrientation: "portrait",
+    fitMode: "rotate"
+  });
+  assert.equal(bin.length, BUFFER_SIZE_BYTES);
+});

@@ -118,19 +118,55 @@ The frame sits behind residential NAT/firewalls, pulling updates from a self-hos
    - Enter your `ADMIN_PASSWORD`. If left unset, a secure one-time password is auto-generated and printed to the container logs on first startup.
    - Monitor connected frames, trigger manual sync, upload photos, or toggle Storage Mode.
 
-### 2. Firmware Compilation & Flashing
+### 2. Home Assistant Add-on Deployment
 
-The firmware is located in `/firmware` and built with **PlatformIO**.
+Cuadro can run directly inside Home Assistant OS or Supervised:
+
+1. Add the `cuadro-ha-app` repository to Home Assistant:
+   - In Home Assistant, navigate to **Settings** → **Add-ons** → **Add-on Store**.
+   - Click the **⋮ (three dots)** menu in the top right → **Repositories**.
+   - Add your add-on repository URL, or place `cuadro-ha-app` into your local `/addons/` folder.
+2. Find **Cuadro** in the store and click **Install**.
+3. In the add-on **Configuration** tab:
+   - Set a strong `frame_token` (matches the token configured on your physical frames).
+   - Configure your photo sources (**Immich**, **Google Photos**, or **iCloud**).
+4. Start the add-on and open the Web UI on port `7890`.
+5. **Updating**: When new backend commits are pushed to `main`, simply go to the add-on page and click **Rebuild** (or click **Update** if updating from a versioned repository).
+
+### 3. Initial Firmware Flashing (USB)
+
+Initial flashing requires a USB connection to provision the dual OTA partition table and bootloader:
 
 1. Connect the `ESP32-133C02` board via USB Type-C.
-2. Build and flash the firmware:
+2. Build and flash the firmware using **PlatformIO**:
    ```bash
    cd firmware
    pio run --target upload
    pio device monitor
    ```
 
-### 3. First-Time Wi-Fi Provisioning (Captive Portal)
+### 4. Over-The-Air (OTA) Updates via Admin Dashboard
+
+Once v1.1.0+ is running on your frames, all subsequent firmware updates can be deployed wirelessly:
+
+1. **Compile new firmware binary:**
+   ```bash
+   cd firmware
+   pio run
+   ```
+   The compiled image is generated at `firmware/.pio/build/esp32-s3-devkitc-1/firmware.bin`.
+2. **Upload in Dashboard:**
+   - Go to the **Firmware** tab in the Admin Web UI.
+   - Click **Upload Firmware**, select `firmware.bin`, enter the version (e.g. `1.1.0`), and add release notes.
+3. **Deploy:**
+   - **Fleet-wide Rollout**: Click **Set as Active Default** to upgrade all frames automatically on their next check-in.
+   - **Canary Rollout**: Open a specific frame's detail sheet, set its **Target Version Override** to the new version, and click **Save Target Version**.
+4. **Safety & Rollback:**
+   - Dual 6.4 MB application partitions (`app0` / `app1`) allow atomic A/B switching.
+   - Incremental mbedtls SHA-256 verification validates binary integrity before committing to flash.
+   - If the new firmware fails to boot or cannot connect to Wi-Fi, the ESP32 bootloader automatically cancels rollback and reboots back into the previous working slot.
+
+### 5. Wi-Fi Provisioning (Captive Portal)
 
 - On first boot (or whenever the physical **SW3 button** on GPIO 13 is held for 1.5s):
   1. The frame broadcasts a Wi-Fi hotspot named: `Cuadro-Setup`.

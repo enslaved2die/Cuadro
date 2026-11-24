@@ -204,9 +204,15 @@ export async function processImageToFrameBuffer(
   } else {
     pipeline = pipeline.resize(viewportWidth, viewportHeight, {
       fit: "cover",
-      position: "centre"
+      position: sharp.strategy.attention
     });
   }
+
+  // Pre-dither conditioning for ~15:1 reflective e-paper contrast
+  pipeline = pipeline
+    .linear(1.12, -12)
+    .modulate({ saturation: 1.22, brightness: 1.03 })
+    .sharpen({ sigma: 0.8 });
 
   // Hardware rotation based on mounting orientation:
   let rotationAngle = 0;

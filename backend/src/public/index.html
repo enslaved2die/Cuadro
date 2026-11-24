@@ -1111,7 +1111,48 @@
               <option value="rotate">Auto-Rotate 90°</option>
             </select>`;
         } else if (key === 'epdoptimizeConfig') {
-          bodyHtml = `<textarea id="ovr-epdoptimizeConfig" spellcheck="false" style="width: 100%; min-height: 140px; padding: 0.6rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'SF Mono', Consolas, monospace; font-size: 0.75rem;"></textarea>`;
+          bodyHtml = `
+            <div style="display: grid; gap: 0.65rem; margin-bottom: 0.75rem;">
+              <div>
+                <label for="ovr-epd-matrix" style="display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.25rem;">Error Diffusion Matrix</label>
+                <select id="ovr-epd-matrix" style="width: 100%; padding: 0.45rem;">
+                  <option value="default">default</option>
+                  <option value="floydSteinberg">floydSteinberg</option>
+                  <option value="jarvisJudiceNinke">jarvisJudiceNinke</option>
+                  <option value="atkinson">atkinson</option>
+                  <option value="stucki">stucki</option>
+                  <option value="burkes">burkes</option>
+                  <option value="sierra">sierra</option>
+                  <option value="twoRowSierra">twoRowSierra</option>
+                  <option value="sierraLite">sierraLite</option>
+                </select>
+              </div>
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.2rem;">
+                  <label for="ovr-epd-drc-strength">Dynamic Range Compression Strength</label>
+                  <span id="ovr-epd-drc-strength-val">0</span>
+                </div>
+                <input type="range" id="ovr-epd-drc-strength" min="0" max="1" step="0.05" value="0" style="width: 100%;">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+                <label style="display: flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; cursor: pointer;">
+                  <input type="checkbox" id="ovr-epd-edge-enabled">
+                  <span>Edge Preservation Enabled</span>
+                </label>
+                <div>
+                  <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.2rem;">
+                    <label for="ovr-epd-edge-strength">Edge Preservation Strength</label>
+                    <span id="ovr-epd-edge-strength-val">0</span>
+                  </div>
+                  <input type="range" id="ovr-epd-edge-strength" min="0" max="1" step="0.05" value="0" style="width: 100%;">
+                </div>
+              </div>
+              <label style="display: flex; align-items: center; gap: 0.45rem; font-size: 0.8rem; cursor: pointer;">
+                <input type="checkbox" id="ovr-epd-serpentine">
+                <span>Serpentine Scanning</span>
+              </label>
+            </div>
+            <textarea id="ovr-epdoptimizeConfig" spellcheck="false" style="width: 100%; min-height: 140px; padding: 0.6rem; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'SF Mono', Consolas, monospace; font-size: 0.75rem;"></textarea>`;
         } else if (key === 'refreshSchedule') {
           bodyHtml = buildScheduleEditorHtml('ovr-refreshSchedule');
         }
@@ -1170,6 +1211,70 @@
       if (epdTextarea) {
         const cfg = f.epdoptimizeConfig || window.__epdConfigDefault || {};
         epdTextarea.value = JSON.stringify(cfg, null, 2);
+
+        const matrixEl = document.getElementById('ovr-epd-matrix');
+        const drcEl = document.getElementById('ovr-epd-drc-strength');
+        const drcValEl = document.getElementById('ovr-epd-drc-strength-val');
+        const edgeEnabledEl = document.getElementById('ovr-epd-edge-enabled');
+        const edgeStrengthEl = document.getElementById('ovr-epd-edge-strength');
+        const edgeStrengthValEl = document.getElementById('ovr-epd-edge-strength-val');
+        const serpentineEl = document.getElementById('ovr-epd-serpentine');
+
+        const syncControlsFromConfig = (c) => {
+          if (!c || typeof c !== 'object') return;
+          if (matrixEl && c.errorDiffusionMatrix) matrixEl.value = c.errorDiffusionMatrix;
+          const drcVal = c.dynamicRangeCompression?.strength ?? 0;
+          if (drcEl) drcEl.value = drcVal;
+          if (drcValEl) drcValEl.textContent = String(drcVal);
+          if (edgeEnabledEl) edgeEnabledEl.checked = Boolean(c.edgePreservation?.enabled);
+          const edgeVal = c.edgePreservation?.strength ?? 0;
+          if (edgeStrengthEl) edgeStrengthEl.value = edgeVal;
+          if (edgeStrengthValEl) edgeStrengthValEl.textContent = String(edgeVal);
+          if (serpentineEl) serpentineEl.checked = Boolean(c.serpentine);
+        };
+
+        const syncTextareaFromControls = () => {
+          let current = {};
+          try {
+            current = JSON.parse(epdTextarea.value) || {};
+          } catch {
+            current = {};
+          }
+          if (matrixEl) current.errorDiffusionMatrix = matrixEl.value;
+          if (drcEl) {
+            const val = parseFloat(drcEl.value);
+            current.dynamicRangeCompression = { ...(current.dynamicRangeCompression || {}), strength: val };
+            if (drcValEl) drcValEl.textContent = String(val);
+          }
+          if (edgeEnabledEl || edgeStrengthEl) {
+            const edgeObj = { ...(current.edgePreservation || {}) };
+            if (edgeEnabledEl) edgeObj.enabled = edgeEnabledEl.checked;
+            if (edgeStrengthEl) {
+              const val = parseFloat(edgeStrengthEl.value);
+              edgeObj.strength = val;
+              if (edgeStrengthValEl) edgeStrengthValEl.textContent = String(val);
+            }
+            current.edgePreservation = edgeObj;
+          }
+          if (serpentineEl) current.serpentine = serpentineEl.checked;
+          epdTextarea.value = JSON.stringify(current, null, 2);
+        };
+
+        syncControlsFromConfig(cfg);
+        [matrixEl, drcEl, edgeEnabledEl, edgeStrengthEl, serpentineEl].forEach(el => {
+          if (el) el.addEventListener('input', syncTextareaFromControls);
+          if (el && (el.tagName === 'SELECT' || el.type === 'checkbox')) {
+            el.addEventListener('change', syncTextareaFromControls);
+          }
+        });
+        epdTextarea.addEventListener('input', () => {
+          try {
+            const parsed = JSON.parse(epdTextarea.value);
+            syncControlsFromConfig(parsed);
+          } catch {
+            // Ignore invalid JSON while user is typing
+          }
+        });
       }
 
       const schedule = f.refreshSchedule || {

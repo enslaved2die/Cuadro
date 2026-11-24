@@ -27,7 +27,7 @@ struct StreamResult {
 class StreamClient {
 public:
   StreamClient(EPD_GDEB0709E01& epd);
-  StreamResult fetchAndStreamFrame(const String& serverUrl, const String& token, float batteryVoltage, const String& caCert = "");
+  StreamResult fetchAndStreamFrame(const String& serverUrl, const String& token, float batteryVoltage, const String& caCert = "", float panelTempC = NAN);
   void acknowledgeSuccess(const String& serverUrl, const String& token, const String& imageId, uint32_t durationMs, float batteryVoltage, const String& caCert = "");
 
 private:

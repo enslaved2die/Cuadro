@@ -370,6 +370,8 @@ void EPD_GDEB0709E01::refresh() {
   selectBoth(false);
   waitBusy();
 
+  readTemperatureC();
+
   log_i("[EPD] Powering off panel (POF)...");
   selectBoth(true);
   writeCommandData(0x02, POF_V, sizeof(POF_V));
@@ -377,6 +379,27 @@ void EPD_GDEB0709E01::refresh() {
   waitBusy();
 
   log_i("[EPD] Display refresh cycle finished.");
+}
+
+float EPD_GDEB0709E01::readTemperatureC() {
+  selectMaster(true);
+  selectSlave(false);
+  writeCommand(0x40);
+  selectMaster(false);
+  waitBusy();
+
+  selectMaster(true);
+  digitalWrite(EPD_DC_PIN, HIGH);
+  SPI.beginTransaction(s_spiSettings);
+  uint8_t msb = SPI.transfer(0x00);
+  uint8_t lsb = SPI.transfer(0x00);
+  SPI.endTransaction();
+  selectMaster(false);
+
+  int16_t raw = (int16_t)((msb << 8) | lsb);
+  m_panelTempC = (raw >> 7) * 0.5f;
+  log_i("[EPD] Panel temperature (TSC 0x40): %.1f C (raw 0x%02X 0x%02X)", m_panelTempC, msb, lsb);
+  return m_panelTempC;
 }
 
 // ==============================================================================

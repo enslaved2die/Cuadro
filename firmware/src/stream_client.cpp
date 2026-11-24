@@ -8,7 +8,8 @@ StreamResult StreamClient::fetchAndStreamFrame(
   const String& serverUrl,
   const String& token,
   float batteryVoltage,
-  const String& caCert
+  const String& caCert,
+  float panelTempC
 ) {
   StreamResult result = { false, DEFAULT_SLEEP_SECONDS, "NORMAL", "", 0, "", false, "", "", "", 0 };
 
@@ -34,6 +35,9 @@ StreamResult StreamClient::fetchAndStreamFrame(
   http.addHeader("Authorization", "Bearer " + token);
   http.addHeader("X-Frame-ID", WiFi.macAddress());
   http.addHeader("X-Battery-Voltage", String(batteryVoltage, 2));
+  if (!isnan(panelTempC)) {
+    http.addHeader("X-Panel-Temp-C", String(panelTempC, 1));
+  }
   http.addHeader("X-Firmware-Version", FIRMWARE_VERSION);
 
   const char* headerKeys[] = {

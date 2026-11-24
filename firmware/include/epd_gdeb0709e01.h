@@ -21,6 +21,8 @@ public:
 
   void refresh();
   void powerSleep();
+  float readTemperatureC();
+  float getLastTemperatureC() const { return m_panelTempC; }
 
 private:
   // Logical mounting orientation used to remap drawChar/drawText coordinates
@@ -29,6 +31,7 @@ private:
   // uses when it rotates real photos server-side (see processor.ts).
   enum class Orientation { PORTRAIT, PORTRAIT_180, LANDSCAPE, LANDSCAPE_270 };
   Orientation m_orientation = Orientation::PORTRAIT_180;
+  float m_panelTempC = NAN;
 
   static Orientation parseOrientation(const String& orientation);
   int logicalWidth() const;

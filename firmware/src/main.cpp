@@ -132,7 +132,7 @@ void loop() {
   }
 
   // 7. Fetch, stream, and refresh the next image payload
-  StreamResult result = streamClient.fetchAndStreamFrame(config.serverUrl, config.frameToken, batteryVoltage, config.caCert);
+  StreamResult result = streamClient.fetchAndStreamFrame(config.serverUrl, config.frameToken, batteryVoltage, config.caCert, epd.getLastTemperatureC());
 
   if (result.success) {
     if (result.imageId.length() > 0) {

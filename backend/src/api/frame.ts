@@ -16,6 +16,18 @@ export const frameRouter = Router();
 // Apply Bearer token authentication to all frame endpoints
 frameRouter.use(requireFrameAuth);
 
+function compareSemver(a: string, b: string): number {
+  const parse = (v: string) =>
+    v.replace(/^v/i, "").split("-")[0].split(".").map((n) => parseInt(n, 10) || 0);
+  const pa = parse(a);
+  const pb = parse(b);
+  for (let i = 0; i < 3; i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
 /**
  * GET /api/v1/frame/next
  * Primary frame poll endpoint. Delivers the next raw 960,000-byte frame buffer.
@@ -94,8 +106,13 @@ frameRouter.get("/next", async (req: Request, res: Response) => {
   }
 
   if (targetRelease && firmwareVersion) {
-    if (firmwareVersion === targetRelease.version) {
-      // Frame is already running the target version; mark OTA status as success if it was pending/updating/flashed.
+    const isFleetDefault = !frameRow?.target_firmware_version;
+    const isSameOrNewer = isFleetDefault
+      ? compareSemver(firmwareVersion, targetRelease.version) >= 0
+      : firmwareVersion === targetRelease.version;
+
+    if (isSameOrNewer) {
+      // Frame is already running the target (or a newer) version; mark OTA status as success if it was pending/updating/flashed.
       if (frameRow?.ota_status && frameRow.ota_status !== "success" && frameRow.ota_status !== "idle") {
         recordOtaStatus(frameId, targetRelease.version, "success");
       }

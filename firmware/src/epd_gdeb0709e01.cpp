@@ -364,13 +364,13 @@ void EPD_GDEB0709E01::refresh() {
 
   delay(50);
 
-  readTemperatureC();
-
   log_i("[EPD] Initiating display refresh (DRF)...");
   selectBoth(true);
   writeCommandData(0x12, DRF_V, sizeof(DRF_V));
   selectBoth(false);
   waitBusy();
+
+  readTemperatureC();
 
   log_i("[EPD] Powering off panel (POF)...");
   selectBoth(true);

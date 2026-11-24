@@ -370,8 +370,6 @@ void EPD_GDEB0709E01::refresh() {
   selectBoth(false);
   waitBusy();
 
-  readTemperatureC();
-
   log_i("[EPD] Powering off panel (POF)...");
   selectBoth(true);
   writeCommandData(0x02, POF_V, sizeof(POF_V));

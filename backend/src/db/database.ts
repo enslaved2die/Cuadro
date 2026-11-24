@@ -165,6 +165,7 @@ export function initSchema(db: DatabaseSync) {
       last_checkin_at INTEGER,
       last_refresh_at INTEGER,
       battery_voltage REAL,
+      panel_temp_c REAL,
       firmware_version TEXT,
       current_image_id TEXT,
       next_expected_refresh_at INTEGER,

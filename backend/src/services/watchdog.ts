@@ -114,7 +114,8 @@ export function recordFrameActivity(
   frameId: string,
   batteryVoltage?: number,
   firmwareVersion?: string,
-  didRefresh = false
+  didRefresh = false,
+  panelTempC?: number
 ): void {
   const db = getDb();
   const now = Date.now();
@@ -123,32 +124,34 @@ export function recordFrameActivity(
 
   if (!existing) {
     db.prepare(`
-      INSERT INTO frames (id, name, last_checkin_at, last_refresh_at, battery_voltage, firmware_version, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO frames (id, name, last_checkin_at, last_refresh_at, battery_voltage, panel_temp_c, firmware_version, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       frameId,
       `Frame-${frameId.slice(-4)}`,
       now,
       didRefresh ? now : null,
       batteryVoltage || null,
+      panelTempC ?? null,
       firmwareVersion || null,
       now
     );
   } else {
     const v = batteryVoltage ?? null;
+    const t = panelTempC ?? null;
     const fw = firmwareVersion ?? null;
     if (didRefresh) {
       db.prepare(`
         UPDATE frames
-        SET last_checkin_at = ?, last_refresh_at = ?, battery_voltage = COALESCE(?, battery_voltage), firmware_version = COALESCE(?, firmware_version)
+        SET last_checkin_at = ?, last_refresh_at = ?, battery_voltage = COALESCE(?, battery_voltage), panel_temp_c = COALESCE(?, panel_temp_c), firmware_version = COALESCE(?, firmware_version)
         WHERE id = ?
-      `).run(now, now, v, fw, frameId);
+      `).run(now, now, v, t, fw, frameId);
     } else {
       db.prepare(`
         UPDATE frames
-        SET last_checkin_at = ?, battery_voltage = COALESCE(?, battery_voltage), firmware_version = COALESCE(?, firmware_version)
+        SET last_checkin_at = ?, battery_voltage = COALESCE(?, battery_voltage), panel_temp_c = COALESCE(?, panel_temp_c), firmware_version = COALESCE(?, firmware_version)
         WHERE id = ?
-      `).run(now, v, fw, frameId);
+      `).run(now, v, t, fw, frameId);
     }
   }
 }

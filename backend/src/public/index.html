@@ -909,6 +909,7 @@
         ['Last Refresh', escapeHtml(formatDateTime(f.last_refresh_at))],
         ['Next Expected Refresh', f.next_expected_refresh_at ? escapeHtml(formatDateTime(f.next_expected_refresh_at)) : 'Indefinite (Storage Mode) or not yet known'],
         ['Battery', f.battery_voltage ? `${f.battery_voltage.toFixed(2)} V` : '-'],
+        ['Panel Temp', f.panel_temp_c != null ? `${Number(f.panel_temp_c).toFixed(1)} °C` : '-'],
         ['Firmware', escapeHtml(f.firmware_version) || '-']
       ];
 

@@ -385,10 +385,8 @@ float EPD_GDEB0709E01::readTemperatureC() {
   selectMaster(true);
   selectSlave(false);
   writeCommand(0x40);
-  selectMaster(false);
   waitBusy();
 
-  selectMaster(true);
   digitalWrite(EPD_DC_PIN, HIGH);
   SPI.beginTransaction(s_spiSettings);
   uint8_t msb = SPI.transfer(0x00);

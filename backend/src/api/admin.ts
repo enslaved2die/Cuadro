@@ -158,6 +158,7 @@ adminRouter.get("/status", (req: Request, res: Response) => {
 
   res.json({
     status: "healthy",
+    version: process.env.npm_package_version || null,
     stats: {
       photoCount,
       queuedCount,

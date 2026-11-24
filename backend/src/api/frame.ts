@@ -35,11 +35,9 @@ function compareSemver(a: string, b: string): number {
 frameRouter.get("/next", async (req: Request, res: Response) => {
   const frameId = (req.headers["x-frame-id"] as string) || req.ip || "unknown-frame";
   const batteryVoltage = parseFloat(req.headers["x-battery-voltage"] as string) || undefined;
-  const rawPanelTemp = parseFloat(req.headers["x-panel-temp-c"] as string);
-  const panelTempC = Number.isFinite(rawPanelTemp) ? rawPanelTemp : undefined;
   const firmwareVersion = (req.headers["x-firmware-version"] as string) || undefined;
 
-  recordFrameActivity(frameId, batteryVoltage, firmwareVersion, false, panelTempC);
+  recordFrameActivity(frameId, batteryVoltage, firmwareVersion, false);
   const watchdog = evaluateFrameWatchdog(frameId);
 
   // Per-frame overrides (nullable columns = inherit the global default). `frame_orientation`

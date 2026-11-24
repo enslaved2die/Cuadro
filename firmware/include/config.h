@@ -53,7 +53,7 @@
 #define DEFAULT_SLEEP_SECONDS     14400   // 4 hours default sleep
 
 // Firmware Version & OTA Configuration
-#define FIRMWARE_VERSION          "1.1.2"
+#define FIRMWARE_VERSION          "1.1.3"
 // Set > 0.0f (e.g. 3.6f) only on hardware with a populated LiPo divider on BATTERY_ADC_PIN.
 // Leave at 0.0f on mains/USB-powered boards where readBatteryVoltage() returns the 3.30V fallback.
 #define OTA_MIN_BATTERY_VOLTAGE   0.0f

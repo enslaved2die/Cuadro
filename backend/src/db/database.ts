@@ -309,6 +309,11 @@ export function initSchema(db: DatabaseSync) {
   } catch (e) {
     // Column already exists
   }
+  try {
+    db.exec("ALTER TABLE frames ADD COLUMN panel_temp_c REAL;");
+  } catch (e) {
+    // Column already exists
+  }
 
   // Migration: cloud-sourced photos can now exist as lightweight metadata + a small cached
   // preview only, deferring the full-resolution original and e-paper render until the photo

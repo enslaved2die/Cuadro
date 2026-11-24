@@ -172,9 +172,13 @@ OtaResultCode OtaManager::applyUpdate(
   epd.powerSleep();
 
   // 4. Connect to backend firmware stream
+  String baseUrl = serverUrl;
+  while (baseUrl.endsWith("/")) {
+    baseUrl.remove(baseUrl.length() - 1);
+  }
   String fullUrl = info.url.startsWith("http://") || info.url.startsWith("https://")
     ? info.url
-    : serverUrl + info.url;
+    : baseUrl + (info.url.startsWith("/") ? info.url : "/" + info.url);
 
   log_i("[OTA] Connecting to firmware download endpoint: %s", fullUrl.c_str());
 
@@ -187,6 +191,7 @@ OtaResultCode OtaManager::applyUpdate(
 
   HTTPClient http;
   http.setTimeout(45000); // 45s read timeout
+  http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   if (!http.begin(secureClient, fullUrl)) {
     log_e("[OTA] Unable to begin HTTPClient for OTA download");
     return OTA_ERR_CONNECT_FAILED;
